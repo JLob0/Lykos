@@ -11,10 +11,12 @@ public record BridgeConfig(
         String commandQueuePrefix,
         String eventStream,
         String resultStream,
+        String resultKeyPrefix,
         String heartbeatKeyPrefix,
         String capabilitiesKeyPrefix,
         long heartbeatTtlSeconds,
         long capabilitiesTtlSeconds,
+        long commandResultTtlSeconds,
         String hmacSecret,
         boolean heartbeatEnabled,
         long heartbeatIntervalTicks
@@ -29,10 +31,12 @@ public record BridgeConfig(
         String commandQueuePrefix = plugin.getConfig().getString("transport.redis.command-channel-prefix", "alka:commands").trim();
         String eventStream = plugin.getConfig().getString("transport.redis.event-stream", "alka:events").trim();
         String resultStream = plugin.getConfig().getString("transport.redis.result-stream", "alka:results").trim();
+        String resultKeyPrefix = plugin.getConfig().getString("transport.redis.result-key-prefix", "alka:command-results").trim();
         String heartbeatKeyPrefix = plugin.getConfig().getString("transport.redis.heartbeat-key-prefix", "alka:heartbeats").trim();
         String capabilitiesKeyPrefix = plugin.getConfig().getString("transport.redis.capabilities-key-prefix", "alka:capabilities").trim();
         long heartbeatTtlSeconds = Math.max(10L, plugin.getConfig().getLong("transport.redis.heartbeat-ttl-seconds", 30L));
         long capabilitiesTtlSeconds = Math.max(30L, plugin.getConfig().getLong("transport.redis.capabilities-ttl-seconds", 300L));
+        long commandResultTtlSeconds = Math.max(30L, plugin.getConfig().getLong("transport.redis.command-result-ttl-seconds", 300L));
         String hmacSecret = plugin.getConfig().getString("transport.security.hmac-secret", "").trim();
         boolean heartbeatEnabled = plugin.getConfig().getBoolean("heartbeat.enabled", true);
         long heartbeatIntervalTicks = Math.max(20L, plugin.getConfig().getLong("heartbeat.interval-ticks", 200L));
@@ -60,10 +64,12 @@ public record BridgeConfig(
                 commandQueuePrefix,
                 eventStream,
                 resultStream,
+                resultKeyPrefix,
                 heartbeatKeyPrefix,
                 capabilitiesKeyPrefix,
                 heartbeatTtlSeconds,
                 capabilitiesTtlSeconds,
+                commandResultTtlSeconds,
                 hmacSecret,
                 heartbeatEnabled,
                 heartbeatIntervalTicks

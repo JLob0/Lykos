@@ -10,10 +10,12 @@ transport:
     command-channel-prefix: "alka:commands"
     event-stream: "alka:events"
     result-stream: "alka:results"
+    result-key-prefix: "alka:command-results"
     heartbeat-key-prefix: "alka:heartbeats"
     capabilities-key-prefix: "alka:capabilities"
     heartbeat-ttl-seconds: 30
     capabilities-ttl-seconds: 300
+    command-result-ttl-seconds: 300
   security:
     hmac-secret: ""
 

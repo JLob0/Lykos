@@ -28,7 +28,9 @@ const config: AppConfig = {
     transportEnabled: false,
     redisNamespace: "alka",
     scanIntervalMs: 5_000,
-    heartbeatStaleMs: 30_000
+    heartbeatStaleMs: 30_000,
+    commandTtlMs: 30_000,
+    commandResultWaitMs: 3_000
   },
   internalApi: {}
 };

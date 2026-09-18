@@ -11,7 +11,14 @@ export const signedRedisMessageSchema = z.object({
 export type SignedRedisMessage = z.infer<typeof signedRedisMessageSchema>;
 
 export function parseSignedRedisMessage(raw: string, secret: string): SignedRedisMessage | undefined {
-  const parsed = signedRedisMessageSchema.safeParse(JSON.parse(raw));
+  let decoded: unknown;
+  try {
+    decoded = JSON.parse(raw);
+  } catch {
+    return undefined;
+  }
+
+  const parsed = signedRedisMessageSchema.safeParse(decoded);
   if (!parsed.success) {
     return undefined;
   }
@@ -22,4 +29,3 @@ export function parseSignedRedisMessage(raw: string, secret: string): SignedRedi
 
   return parsed.data;
 }
-

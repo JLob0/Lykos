@@ -26,3 +26,13 @@ gradle -p alkabridge build
 ```
 
 Runtime secrets must be provided through environment variables or host secret management. Do not commit real tokens, webhook URLs, OAuth secrets, bridge secrets, or database credentials.
+
+## Bridge Ping
+
+With Redis transport enabled on both sides and matching `BRIDGE_HMAC_SECRET` / `transport.security.hmac-secret`, the internal diagnostic endpoint can test the command bus:
+
+```bash
+POST /internal/v1/servers/{serverId}/ping
+```
+
+Lykos publishes a signed `bridge.ping` command to `alka:commands:{serverId}`. AlkaBridge validates the wrapper, target server, expiration, and replay window, then stores a signed result at `alka:command-results:{commandId}` and appends it to `alka:results`.

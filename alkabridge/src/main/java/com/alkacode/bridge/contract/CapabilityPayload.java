@@ -18,9 +18,9 @@ public record CapabilityPayload(
                 List.of(
                         "server.heartbeat",
                         "server.capabilities",
+                        "bridge.ping",
                         "player.profile.read"
                 )
         );
     }
 }
-

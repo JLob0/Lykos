@@ -4,7 +4,7 @@
   "title": "Alka Command Envelope v1",
   "type": "object",
   "additionalProperties": false,
-  "required": ["commandId", "correlationId", "command", "version", "targetServer", "issuedAt", "expiresAt", "actor", "data", "signature"],
+  "required": ["commandId", "correlationId", "command", "version", "targetServer", "issuedAt", "expiresAt", "actor", "data"],
   "properties": {
     "commandId": {
       "type": "string",
@@ -57,11 +57,6 @@
     "data": {
       "type": "object",
       "additionalProperties": true
-    },
-    "signature": {
-      "type": "string",
-      "minLength": 32
     }
   }
 }
-

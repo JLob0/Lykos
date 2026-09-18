@@ -1,5 +1,6 @@
 import Fastify, { type FastifyInstance } from "fastify";
 import { BridgeRedisMonitor } from "../bridge/bridgeRedisMonitor.js";
+import { BridgeCommandDispatcher } from "../bridge/commandDispatcher.js";
 import { registerServerRoutes } from "../bridge/serverRoutes.js";
 import { ServerRegistry } from "../bridge/serverRegistry.js";
 import type { AppConfig } from "../config/appConfig.js";
@@ -17,6 +18,7 @@ export class LykosApp {
   private readonly redis: RedisProvider;
   private readonly serverRegistry: ServerRegistry;
   private readonly bridgeMonitor: BridgeRedisMonitor;
+  private readonly commandDispatcher: BridgeCommandDispatcher;
 
   public constructor(
     private readonly config: AppConfig,
@@ -37,9 +39,10 @@ export class LykosApp {
       new ServerNodeRepository(this.database),
       logger
     );
+    this.commandDispatcher = new BridgeCommandDispatcher(config, this.redis, logger);
 
     registerHealthRoutes(this.server, config, [this.discord, this.database, this.redis, this.bridgeMonitor]);
-    registerServerRoutes(this.server, config, this.serverRegistry);
+    registerServerRoutes(this.server, config, this.serverRegistry, this.commandDispatcher);
   }
 
   public async start(): Promise<void> {

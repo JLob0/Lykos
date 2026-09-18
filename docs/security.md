@@ -14,4 +14,6 @@
 
 Commands from Lykos to AlkaBridge must be signed, expiring, idempotent, and scoped to a target server. Pub/Sub may be used for non-critical notifications, but important commands and results need durable queue/stream handling before production use.
 
-Bridge heartbeats and capabilities are stored in Redis as signed wrappers. Lykos verifies the HMAC before accepting the payload into its in-memory server registry.
+Bridge heartbeats, capabilities, commands, and command results are stored or queued in Redis as signed wrappers. Lykos and AlkaBridge verify the HMAC before accepting payloads.
+
+The current command bus uses an expiring `command-envelope.v1` payload inside the signed wrapper. AlkaBridge rejects invalid signatures, expired commands, commands for another `server.id`, unsupported command names, and duplicate command IDs observed inside the replay retention window.

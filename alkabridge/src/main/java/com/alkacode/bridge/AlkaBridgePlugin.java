@@ -1,9 +1,11 @@
 package com.alkacode.bridge;
 
 import com.alkacode.bridge.command.AlkaBridgeCommand;
+import com.alkacode.bridge.command.CommandConsumerService;
 import com.alkacode.bridge.config.BridgeConfig;
 import com.alkacode.bridge.heartbeat.HeartbeatService;
 import com.alkacode.bridge.transport.BridgeTransport;
+import com.alkacode.bridge.transport.CommandCapableTransport;
 import com.alkacode.bridge.transport.LoggingBridgeTransport;
 import com.alkacode.bridge.transport.RedisBridgeTransport;
 import com.alkacode.core.plugin.AlkaPlugin;
@@ -14,6 +16,7 @@ public final class AlkaBridgePlugin extends AlkaPlugin {
     private BridgeConfig bridgeConfig;
     private BridgeTransport transport;
     private HeartbeatService heartbeatService;
+    private CommandConsumerService commandConsumerService;
 
     @Override
     protected void onPluginEnable() {
@@ -51,6 +54,11 @@ public final class AlkaBridgePlugin extends AlkaPlugin {
         this.transport = createTransport(bridgeConfig);
         this.heartbeatService = new HeartbeatService(this, bridgeConfig, transport);
         this.heartbeatService.start();
+
+        if (transport instanceof CommandCapableTransport commandTransport) {
+            this.commandConsumerService = new CommandConsumerService(this, bridgeConfig, commandTransport);
+            this.commandConsumerService.start();
+        }
     }
 
     private BridgeTransport createTransport(BridgeConfig config) {
@@ -70,6 +78,11 @@ public final class AlkaBridgePlugin extends AlkaPlugin {
         if (heartbeatService != null) {
             heartbeatService.stop();
             heartbeatService = null;
+        }
+
+        if (commandConsumerService != null) {
+            commandConsumerService.stop();
+            commandConsumerService = null;
         }
 
         if (transport != null) {

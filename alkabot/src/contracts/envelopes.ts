@@ -28,8 +28,7 @@ export const commandEnvelopeSchema = z.object({
     staffMemberId: z.string().nullable().optional(),
     permissionsSnapshot: z.array(z.string())
   }),
-  data: z.record(z.string(), z.unknown()),
-  signature: z.string().min(32)
+  data: z.record(z.string(), z.unknown())
 });
 
 export const commandResultSchema = z.object({
@@ -75,4 +74,3 @@ export type CommandEnvelope = z.infer<typeof commandEnvelopeSchema>;
 export type CommandResult = z.infer<typeof commandResultSchema>;
 export type HeartbeatPayload = z.infer<typeof heartbeatSchema>;
 export type CapabilitiesPayload = z.infer<typeof capabilitiesSchema>;
-

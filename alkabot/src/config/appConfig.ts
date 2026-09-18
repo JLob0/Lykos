@@ -36,6 +36,8 @@ const envSchema = z.object({
   BRIDGE_REDIS_NAMESPACE: z.string().trim().min(1).default("alka"),
   BRIDGE_SCAN_INTERVAL_MS: durationMsSchema.default(5_000),
   BRIDGE_HEARTBEAT_STALE_MS: durationMsSchema.default(30_000),
+  BRIDGE_COMMAND_TTL_MS: durationMsSchema.default(30_000),
+  BRIDGE_COMMAND_RESULT_WAIT_MS: durationMsSchema.default(3_000),
   INTERNAL_API_TOKEN: optionalSecretSchema
 });
 
@@ -70,6 +72,8 @@ export type AppConfig = {
     redisNamespace: string;
     scanIntervalMs: number;
     heartbeatStaleMs: number;
+    commandTtlMs: number;
+    commandResultWaitMs: number;
   };
   internalApi: {
     token?: string;
@@ -85,7 +89,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     transportEnabled: parsed.BRIDGE_TRANSPORT_ENABLED,
     redisNamespace: parsed.BRIDGE_REDIS_NAMESPACE,
     scanIntervalMs: parsed.BRIDGE_SCAN_INTERVAL_MS,
-    heartbeatStaleMs: parsed.BRIDGE_HEARTBEAT_STALE_MS
+    heartbeatStaleMs: parsed.BRIDGE_HEARTBEAT_STALE_MS,
+    commandTtlMs: parsed.BRIDGE_COMMAND_TTL_MS,
+    commandResultWaitMs: parsed.BRIDGE_COMMAND_RESULT_WAIT_MS
   };
 
   if (parsed.DISCORD_TOKEN !== undefined) {

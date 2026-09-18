@@ -22,5 +22,13 @@ This foundation contains only the safe base:
 - JSON schemas and fixtures for the first bridge contracts.
 - Paper plugin skeleton using AlkaCore as a hard dependency.
 - Redis heartbeat/capabilities transport with HMAC-signed payloads.
+- Redis command bus for the first Bot -> Bridge command, `bridge.ping`, with signed queue payloads, expiration checks, target-server validation, basic replay protection, and signed results.
 
 Feature domains such as identity linking, staff promotions, role sync, tickets, appeals, booster rewards, and chat bridge must be added in vertical slices after this base is stable.
+
+## Redis Command Bus
+
+- Commands are pushed by Lykos to `alka:commands:{serverId}` using `LPUSH`.
+- AlkaBridge consumes with `BRPOP`, validates the signed wrapper, and executes only commands targeted to its configured `server.id`.
+- Results are written to `alka:command-results:{commandId}` with a TTL and also appended to the `alka:results` stream for observability.
+- `POST /internal/v1/servers/{serverId}/ping` dispatches `bridge.ping` and waits briefly for the signed result; if the bridge does not answer in time, the route returns `202 DISPATCHED`.

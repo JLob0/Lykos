@@ -10,6 +10,8 @@ describe("loadConfig", () => {
     expect(config.http.port).toBe(3000);
     expect(config.discord.token).toBeUndefined();
     expect(config.bridge.transportEnabled).toBe(false);
+    expect(config.bridge.commandTtlMs).toBe(30_000);
+    expect(config.bridge.commandResultWaitMs).toBe(3_000);
   });
 
   it("normalizes empty secrets to undefined", () => {
