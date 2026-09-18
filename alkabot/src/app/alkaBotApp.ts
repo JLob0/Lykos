@@ -8,6 +8,7 @@ import { IdentityProfileProvider } from "../application/profile/identityProfileP
 import { RoleSetupService } from "../application/roles/roleSetupService.js";
 import { SetupService } from "../application/setup/setupService.js";
 import { StaffDirectoryService } from "../application/staff/staffDirectoryService.js";
+import { StaffOperationsService } from "../application/staff/staffOperationsService.js";
 import { BridgeRedisMonitor } from "../bridge/bridgeRedisMonitor.js";
 import { BridgeCommandDispatcher } from "../bridge/commandDispatcher.js";
 import { registerServerRoutes } from "../bridge/serverRoutes.js";
@@ -45,6 +46,7 @@ export class LykosApp {
   private readonly setupService: SetupService;
   private readonly roleSetupService: RoleSetupService;
   private readonly staffDirectoryService: StaffDirectoryService;
+  private readonly staffOperationsService: StaffOperationsService;
 
   public constructor(
     private readonly config: AppConfig,
@@ -65,7 +67,9 @@ export class LykosApp {
     this.profileService = new ProfileAggregationService(this.identityLinkService, [new IdentityProfileProvider(this.identityLinkService)]);
     this.policyEngine = new PolicyEngine(config);
     this.roleSetupService = new RoleSetupService(new RoleSetupRepository(this.database));
-    this.staffDirectoryService = new StaffDirectoryService(new StaffDirectoryRepository(this.database));
+    const staffRepository = new StaffDirectoryRepository(this.database);
+    this.staffDirectoryService = new StaffDirectoryService(staffRepository);
+    this.staffOperationsService = new StaffOperationsService(staffRepository);
     this.bridgeMonitor = new BridgeRedisMonitor(
       config,
       this.redis,
@@ -89,7 +93,8 @@ export class LykosApp {
       profileService: this.profileService,
       setupService: this.setupService,
       roleSetupService: this.roleSetupService,
-      staffDirectoryService: this.staffDirectoryService
+      staffDirectoryService: this.staffDirectoryService,
+      staffOperationsService: this.staffOperationsService
     });
     const interactionRouter = new InteractionRouter(commandSet.chatInputCommands, commandSet.buttonHandlers, logger);
     this.discord = new DiscordRuntime(config, logger, interactionRouter);

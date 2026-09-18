@@ -49,6 +49,27 @@ describe("PolicyEngine", () => {
     });
   });
 
+  it("allows staff operation roles only for their mapped action", () => {
+    const engine = new PolicyEngine(
+      configWithPolicy({
+        staffPromoteRoleIds: new Set(["role_staff_promote"]),
+        staffDemoteRoleIds: new Set(["role_staff_demote"])
+      })
+    );
+
+    expect(engine.evaluate(request(actor({ roleIds: ["role_staff_promote"] }), ALKA_PERMISSIONS.STAFF_PROMOTE))).toMatchObject({
+      decision: "ALLOW",
+      matchedBy: "ACTION_ROLE"
+    });
+    expect(engine.evaluate(request(actor({ roleIds: ["role_staff_demote"] }), ALKA_PERMISSIONS.STAFF_DEMOTE))).toMatchObject({
+      decision: "ALLOW",
+      matchedBy: "ACTION_ROLE"
+    });
+    expect(engine.evaluate(request(actor({ roleIds: ["role_staff_read"] }), ALKA_PERMISSIONS.STAFF_PROMOTE))).toMatchObject({
+      decision: "DENY"
+    });
+  });
+
   it("denies in production when no binding matches", () => {
     const engine = new PolicyEngine(configWithPolicy({ environment: "production", networkReadRoleIds: new Set(["other"]) }));
 
@@ -86,6 +107,8 @@ function configWithPolicy(overrides: {
   setupReadRoleIds?: ReadonlySet<string>;
   setupWriteRoleIds?: ReadonlySet<string>;
   staffReadRoleIds?: ReadonlySet<string>;
+  staffPromoteRoleIds?: ReadonlySet<string>;
+  staffDemoteRoleIds?: ReadonlySet<string>;
 }): AppConfig {
   return {
     app: {
@@ -123,7 +146,9 @@ function configWithPolicy(overrides: {
       auditReadRoleIds: overrides.auditReadRoleIds ?? new Set(),
       setupReadRoleIds: overrides.setupReadRoleIds ?? new Set(),
       setupWriteRoleIds: overrides.setupWriteRoleIds ?? new Set(),
-      staffReadRoleIds: overrides.staffReadRoleIds ?? new Set()
+      staffReadRoleIds: overrides.staffReadRoleIds ?? new Set(),
+      staffPromoteRoleIds: overrides.staffPromoteRoleIds ?? new Set(),
+      staffDemoteRoleIds: overrides.staffDemoteRoleIds ?? new Set()
     },
     identity: {
       linkCodeTtlMs: 300_000,

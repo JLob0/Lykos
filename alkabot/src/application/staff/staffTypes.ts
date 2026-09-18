@@ -61,10 +61,57 @@ export type StaffCareerPath = {
   positions: StaffPosition[];
 };
 
+export type StaffOperationKind = "PROMOTE" | "DEMOTE";
+
+export type StaffOperationStatus = "PREVIEW" | "APPLIED" | "BLOCKED";
+
+export type StaffOperationBlockReason = "NO_ACTIVE_ASSIGNMENT" | "NO_TARGET_POSITION" | "SENIOR_SEAT_OCCUPIED";
+
+export type StaffAssignmentChangeInput = {
+  assignmentId: string;
+  historyId: string;
+  staffMemberId: string;
+  actorDiscordUserId: string;
+  eventType: "STAFF_PROMOTED" | "STAFF_DEMOTED";
+  fromDepartmentKey?: string;
+  fromPositionKey?: string;
+  toDepartmentKey: string;
+  toPositionKey: string;
+  reason: string;
+  metadata: Record<string, unknown>;
+  appliedAt: Date;
+};
+
+export type StaffAssignmentChangeRecord = {
+  assignmentId: string;
+  historyId: string;
+  appliedAt: Date;
+};
+
+export type StaffOperationResult = {
+  kind: StaffOperationKind;
+  status: StaffOperationStatus;
+  member: StaffMemberProfile;
+  fromPosition?: StaffPosition;
+  toPosition?: StaffPosition;
+  seniorSeatHolder?: StaffMemberProfile;
+  blockReason?: StaffOperationBlockReason;
+  reason: string;
+  requiresConfirmation: boolean;
+  pendingExternalSync: boolean;
+  assignmentId?: string;
+  historyId?: string;
+  appliedAt?: Date;
+};
+
 export interface StaffDirectoryStore {
   listActiveStaff(): Promise<StaffMemberRecord[]>;
   findActiveStaffByDiscord(discordUserId: string): Promise<StaffMemberRecord | undefined>;
   findStaffByMemberId(memberId: string): Promise<StaffMemberRecord | undefined>;
+}
+
+export interface StaffOperationsStore extends StaffDirectoryStore {
+  applyAssignmentChange(input: StaffAssignmentChangeInput): Promise<StaffAssignmentChangeRecord>;
 }
 
 export type StaffErrorCode = "STAFF_MEMBER_NOT_FOUND" | "STAFF_DEPARTMENT_NOT_FOUND";

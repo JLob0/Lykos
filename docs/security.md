@@ -43,8 +43,11 @@ The current command bus uses an expiring `command-envelope.v1` payload inside th
 - Provider failures are represented as source status instead of leaking stack traces or raw backend errors to Discord users.
 - Internal profile routes use the same `/internal` bearer-token gate as bridge and identity routes.
 
-## Staff Visibility
+## Staff Operations
 
-- Staff directory commands are read-only in this block and require `alka.staff.read`.
+- Staff directory commands require `alka.staff.read`.
+- `/staff promote` and `/staff demote` require `alka.staff.promote` and `alka.staff.demote`; staff read roles alone cannot mutate career state.
+- Promotion/demotion commands preview by default and require `confirmar:true` before writing assignments or history.
+- Senior-seat conflicts block the operation before mutation.
 - Admin bindings still bypass action-specific role bindings through the central `PolicyEngine`.
-- Promotion/demotion and Discord role mutation are intentionally absent here; future mutating staff actions must add confirmation, hierarchy checks, audit metadata, and reconciliation handling before changing external state.
+- Discord role mutation and LuckPerms sync are intentionally absent here; the operation result is marked as pending external sync for the future reconciliation block.

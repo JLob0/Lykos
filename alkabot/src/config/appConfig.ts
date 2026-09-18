@@ -52,6 +52,8 @@ const envSchema = z.object({
   POLICY_SETUP_READ_ROLE_IDS: csvSchema,
   POLICY_SETUP_WRITE_ROLE_IDS: csvSchema,
   POLICY_STAFF_READ_ROLE_IDS: csvSchema,
+  POLICY_STAFF_PROMOTE_ROLE_IDS: csvSchema,
+  POLICY_STAFF_DEMOTE_ROLE_IDS: csvSchema,
   LINK_CODE_TTL_SECONDS: durationSecondsSchema.default(300),
   LINK_CODE_RATE_LIMIT_SECONDS: durationSecondsSchema.default(30),
   INTERNAL_API_TOKEN: optionalSecretSchema
@@ -102,6 +104,8 @@ export type AppConfig = {
     setupReadRoleIds: ReadonlySet<string>;
     setupWriteRoleIds: ReadonlySet<string>;
     staffReadRoleIds: ReadonlySet<string>;
+    staffPromoteRoleIds: ReadonlySet<string>;
+    staffDemoteRoleIds: ReadonlySet<string>;
   };
   identity: {
     linkCodeTtlMs: number;
@@ -173,7 +177,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
       auditReadRoleIds: parsed.POLICY_AUDIT_READ_ROLE_IDS,
       setupReadRoleIds: parsed.POLICY_SETUP_READ_ROLE_IDS,
       setupWriteRoleIds: parsed.POLICY_SETUP_WRITE_ROLE_IDS,
-      staffReadRoleIds: parsed.POLICY_STAFF_READ_ROLE_IDS
+      staffReadRoleIds: parsed.POLICY_STAFF_READ_ROLE_IDS,
+      staffPromoteRoleIds: parsed.POLICY_STAFF_PROMOTE_ROLE_IDS,
+      staffDemoteRoleIds: parsed.POLICY_STAFF_DEMOTE_ROLE_IDS
     },
     identity: {
       linkCodeTtlMs: parsed.LINK_CODE_TTL_SECONDS * 1000,

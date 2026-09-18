@@ -1,5 +1,11 @@
 import type { RowDataPacket } from "mysql2/promise";
-import type { StaffDirectoryStore, StaffMemberRecord, StaffMemberStatus } from "../../application/staff/staffTypes.js";
+import type {
+  StaffAssignmentChangeInput,
+  StaffAssignmentChangeRecord,
+  StaffMemberRecord,
+  StaffMemberStatus,
+  StaffOperationsStore
+} from "../../application/staff/staffTypes.js";
 import type { DatabaseProvider } from "./databaseProvider.js";
 
 type StaffMemberRow = RowDataPacket & {
@@ -17,7 +23,7 @@ type StaffMemberRow = RowDataPacket & {
   assigned_at: Date | null;
 };
 
-export class StaffDirectoryRepository implements StaffDirectoryStore {
+export class StaffDirectoryRepository implements StaffOperationsStore {
   public constructor(private readonly database: DatabaseProvider) {}
 
   public async listActiveStaff(): Promise<StaffMemberRecord[]> {
@@ -37,6 +43,68 @@ export class StaffDirectoryRepository implements StaffDirectoryStore {
       .getPool()
       .execute<StaffMemberRow[]>(`${STAFF_SELECT} WHERE sm.staff_member_id = ? LIMIT 1`, [memberId]);
     return rows[0] == null ? undefined : toStaffMemberRecord(rows[0]);
+  }
+
+  public async applyAssignmentChange(input: StaffAssignmentChangeInput): Promise<StaffAssignmentChangeRecord> {
+    const connection = await this.database.getPool().getConnection();
+    try {
+      await connection.beginTransaction();
+      await connection.execute(
+        `
+          UPDATE staff_assignments
+          SET status = 'ENDED',
+              ended_at = ?,
+              updated_at = CURRENT_TIMESTAMP(3)
+          WHERE staff_member_id = ?
+            AND status = 'ACTIVE'
+        `,
+        [input.appliedAt, input.staffMemberId]
+      );
+      await connection.execute(
+        `
+          INSERT INTO staff_assignments (
+            assignment_id, staff_member_id, department_key, position_key, status, assigned_at
+          )
+          VALUES (?, ?, ?, ?, 'ACTIVE', ?)
+        `,
+        [input.assignmentId, input.staffMemberId, input.toDepartmentKey, input.toPositionKey, input.appliedAt]
+      );
+      await connection.execute(
+        `
+          INSERT INTO staff_history (
+            history_id, staff_member_id, event_type, actor_discord_user_id,
+            from_department_key, from_position_key, to_department_key, to_position_key,
+            reason, metadata_json, created_at
+          )
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `,
+        [
+          input.historyId,
+          input.staffMemberId,
+          input.eventType,
+          input.actorDiscordUserId,
+          input.fromDepartmentKey ?? null,
+          input.fromPositionKey ?? null,
+          input.toDepartmentKey,
+          input.toPositionKey,
+          input.reason,
+          JSON.stringify(input.metadata),
+          input.appliedAt
+        ]
+      );
+      await connection.commit();
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
+
+    return {
+      assignmentId: input.assignmentId,
+      historyId: input.historyId,
+      appliedAt: input.appliedAt
+    };
   }
 }
 

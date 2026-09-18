@@ -128,7 +128,9 @@ function config(overrides: { environment?: AppConfig["app"]["environment"]; inte
       auditReadRoleIds: new Set(),
       setupReadRoleIds: new Set(),
       setupWriteRoleIds: new Set(),
-      staffReadRoleIds: new Set()
+      staffReadRoleIds: new Set(),
+      staffPromoteRoleIds: new Set(),
+      staffDemoteRoleIds: new Set()
     },
     identity: {
       linkCodeTtlMs: 300_000,

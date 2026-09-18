@@ -12,7 +12,8 @@ import type { RoleApplyResult, RolePlan } from "../src/application/roles/rolePla
 import type { SetupService } from "../src/application/setup/setupService.js";
 import type { SetupDoctorReport } from "../src/application/setup/setupTypes.js";
 import type { StaffDirectoryService } from "../src/application/staff/staffDirectoryService.js";
-import type { StaffCareerPath, StaffMemberProfile } from "../src/application/staff/staffTypes.js";
+import type { StaffOperationsService } from "../src/application/staff/staffOperationsService.js";
+import type { StaffCareerPath, StaffMemberProfile, StaffOperationResult } from "../src/application/staff/staffTypes.js";
 import { ServerRegistry, type ServerNodeView } from "../src/bridge/serverRegistry.js";
 import type { AppConfig } from "../src/config/appConfig.js";
 import { createApplicationCommandPayloads } from "../src/discord/commands/commandRegistry.js";
@@ -410,6 +411,7 @@ describe("staff command", () => {
     const staffDirectoryService = staffDirectoryServiceStub();
     const command = createStaffCommand({
       staffDirectoryService,
+      staffOperationsService: staffOperationsServiceStub(),
       policyEngine: new PolicyEngine(policyConfig({ staffReadRoleIds: new Set(["role_staff"]) })),
       auditService
     });
@@ -431,6 +433,7 @@ describe("staff command", () => {
     const staffDirectoryService = staffDirectoryServiceStub();
     const command = createStaffCommand({
       staffDirectoryService,
+      staffOperationsService: staffOperationsServiceStub(),
       policyEngine: new PolicyEngine(policyConfig({ staffReadRoleIds: new Set(["role_staff"]) })),
       auditService
     });
@@ -454,6 +457,7 @@ describe("staff command", () => {
     const staffDirectoryService = staffDirectoryServiceStub();
     const command = createStaffCommand({
       staffDirectoryService,
+      staffOperationsService: staffOperationsServiceStub(),
       policyEngine: new PolicyEngine(policyConfig({ staffReadRoleIds: new Set(["role_staff"]) })),
       auditService
     });
@@ -476,6 +480,7 @@ describe("staff command", () => {
     const auditService = auditServiceStub();
     const command = createStaffCommand({
       staffDirectoryService: staffDirectoryServiceStub(),
+      staffOperationsService: staffOperationsServiceStub(),
       policyEngine: new PolicyEngine(policyConfig({ staffReadRoleIds: new Set(["role_staff"]) })),
       auditService
     });
@@ -488,6 +493,111 @@ describe("staff command", () => {
 
     expect(interaction.reply).toHaveBeenCalledWith({
       content: "Voce nao tem permissao para ver o painel de staff.",
+      flags: MessageFlags.Ephemeral
+    });
+    expect(auditService.record).toHaveBeenCalledWith(expect.objectContaining({ eventType: "POLICY_DENIED" }));
+  });
+
+  it("previews a staff promotion without applying when confirmation is missing", async () => {
+    const auditService = auditServiceStub();
+    const staffOperationsService = staffOperationsServiceStub();
+    const command = createStaffCommand({
+      staffDirectoryService: staffDirectoryServiceStub(),
+      staffOperationsService,
+      policyEngine: new PolicyEngine(policyConfig({ staffPromoteRoleIds: new Set(["role_staff_promote"]) })),
+      auditService
+    });
+    const interaction = chatInputInteraction({
+      roleIds: ["role_staff_promote"],
+      subcommand: "promote",
+      stringOptions: {
+        id: "staff_1",
+        motivo: "Bom desempenho no periodo de teste."
+      },
+      booleanOptions: {
+        confirmar: false
+      }
+    });
+
+    await command.execute(interaction);
+
+    expect(staffOperationsService.promote).toHaveBeenCalledWith({
+      memberId: "staff_1",
+      actorDiscordUserId: "111",
+      reason: "Bom desempenho no periodo de teste.",
+      confirmed: false
+    });
+    expect(interaction.editReply).toHaveBeenCalledWith(expect.objectContaining({ flags: MessageFlags.IsComponentsV2 }));
+    expect(auditService.record).toHaveBeenCalledWith(expect.objectContaining({ eventType: "STAFF_PROMOTION_PREVIEWED" }));
+  });
+
+  it("applies a staff demotion when confirmation is true", async () => {
+    const auditService = auditServiceStub();
+    const staffOperationsService = staffOperationsServiceStub({
+      demoteResult: staffOperationResult({
+        kind: "DEMOTE",
+        status: "APPLIED",
+        requiresConfirmation: false,
+        assignmentId: "assignment_applied",
+        historyId: "history_applied",
+        appliedAt: new Date("2026-09-18T16:00:00.000Z")
+      })
+    });
+    const command = createStaffCommand({
+      staffDirectoryService: staffDirectoryServiceStub(),
+      staffOperationsService,
+      policyEngine: new PolicyEngine(policyConfig({ staffDemoteRoleIds: new Set(["role_staff_demote"]) })),
+      auditService
+    });
+    const interaction = chatInputInteraction({
+      roleIds: ["role_staff_demote"],
+      subcommand: "demote",
+      stringOptions: {
+        id: "staff_1",
+        motivo: "Reorganizacao da equipe."
+      },
+      booleanOptions: {
+        confirmar: true
+      }
+    });
+
+    await command.execute(interaction);
+
+    expect(staffOperationsService.demote).toHaveBeenCalledWith({
+      memberId: "staff_1",
+      actorDiscordUserId: "111",
+      reason: "Reorganizacao da equipe.",
+      confirmed: true
+    });
+    expect(auditService.record).toHaveBeenCalledWith(expect.objectContaining({ eventType: "STAFF_DEMOTED" }));
+  });
+
+  it("does not allow staff read roles to mutate staff career", async () => {
+    const auditService = auditServiceStub();
+    const staffOperationsService = staffOperationsServiceStub();
+    const command = createStaffCommand({
+      staffDirectoryService: staffDirectoryServiceStub(),
+      staffOperationsService,
+      policyEngine: new PolicyEngine(policyConfig({ staffReadRoleIds: new Set(["role_staff_read"]) })),
+      auditService
+    });
+    const interaction = chatInputInteraction({
+      roleIds: ["role_staff_read"],
+      subcommand: "promote",
+      stringOptions: {
+        id: "staff_1",
+        motivo: "Tentativa sem permissao."
+      },
+      booleanOptions: {
+        confirmar: true
+      }
+    });
+
+    await command.execute(interaction);
+
+    expect(staffOperationsService.promote).not.toHaveBeenCalled();
+    expect(interaction.reply).toHaveBeenCalledWith({
+      content: "Voce nao tem permissao para alterar carreira da staff.",
       flags: MessageFlags.Ephemeral
     });
     expect(auditService.record).toHaveBeenCalledWith(expect.objectContaining({ eventType: "POLICY_DENIED" }));
@@ -519,6 +629,7 @@ function chatInputInteraction(input: {
   optionMode?: string;
   stringOption?: string | null;
   stringOptions?: Record<string, string | null>;
+  booleanOptions?: Record<string, boolean | null>;
   userOption?: { id: string } | null;
   guildRoles?: Array<{ id: string; name: string; managed?: boolean; position?: number; editable?: boolean }>;
 }): ChatInputCommandInteraction {
@@ -566,6 +677,13 @@ function chatInputInteraction(input: {
 
         if (name === "modo") {
           return input.optionMode ?? "LEAN";
+        }
+
+        return null;
+      },
+      getBoolean: (name: string) => {
+        if (input.booleanOptions != null && Object.prototype.hasOwnProperty.call(input.booleanOptions, name)) {
+          return input.booleanOptions[name];
         }
 
         return null;
@@ -700,6 +818,35 @@ function staffDirectoryServiceStub(): StaffDirectoryService {
   } as unknown as StaffDirectoryService;
 }
 
+function staffOperationResult(overrides: Partial<StaffOperationResult> = {}): StaffOperationResult {
+  const member = staffMemberProfile();
+  return {
+    kind: "PROMOTE",
+    status: "PREVIEW",
+    member,
+    toPosition: {
+      key: "moderation.senior",
+      departmentKey: "moderation",
+      name: "Moderador Senior",
+      seniorityLevel: "SENIOR",
+      rankOrder: 80,
+      seniorSeat: true
+    },
+    reason: "Bom desempenho.",
+    requiresConfirmation: true,
+    pendingExternalSync: true,
+    ...(member.position == null ? {} : { fromPosition: member.position }),
+    ...overrides
+  };
+}
+
+function staffOperationsServiceStub(overrides: { promoteResult?: StaffOperationResult; demoteResult?: StaffOperationResult } = {}): StaffOperationsService {
+  return {
+    promote: vi.fn(async () => overrides.promoteResult ?? staffOperationResult()),
+    demote: vi.fn(async () => overrides.demoteResult ?? staffOperationResult({ kind: "DEMOTE" }))
+  } as unknown as StaffOperationsService;
+}
+
 function auditServiceStub(): AuditService {
   return {
     record: vi.fn(async (event) => ({
@@ -780,6 +927,8 @@ function policyConfig(overrides: {
   setupReadRoleIds?: ReadonlySet<string>;
   setupWriteRoleIds?: ReadonlySet<string>;
   staffReadRoleIds?: ReadonlySet<string>;
+  staffPromoteRoleIds?: ReadonlySet<string>;
+  staffDemoteRoleIds?: ReadonlySet<string>;
 }): AppConfig {
   return {
     app: {
@@ -817,7 +966,9 @@ function policyConfig(overrides: {
       auditReadRoleIds: new Set(),
       setupReadRoleIds: overrides.setupReadRoleIds ?? new Set(),
       setupWriteRoleIds: overrides.setupWriteRoleIds ?? new Set(),
-      staffReadRoleIds: overrides.staffReadRoleIds ?? new Set()
+      staffReadRoleIds: overrides.staffReadRoleIds ?? new Set(),
+      staffPromoteRoleIds: overrides.staffPromoteRoleIds ?? new Set(),
+      staffDemoteRoleIds: overrides.staffDemoteRoleIds ?? new Set()
     },
     identity: {
       linkCodeTtlMs: 300_000,

@@ -6,6 +6,7 @@ import type { ProfileAggregationService } from "../../application/profile/profil
 import type { RoleSetupService } from "../../application/roles/roleSetupService.js";
 import type { SetupService } from "../../application/setup/setupService.js";
 import type { StaffDirectoryService } from "../../application/staff/staffDirectoryService.js";
+import type { StaffOperationsService } from "../../application/staff/staffOperationsService.js";
 import type { ServerRegistry } from "../../bridge/serverRegistry.js";
 import type { ButtonInteractionHandler, ChatInputCommandHandler } from "../interactions/slashCommand.js";
 import { createLinkCommand, createUnlinkCommand, linkCommandData, unlinkCommandData } from "./identityCommands.js";
@@ -28,6 +29,7 @@ export type DiscordCommandSetDependencies = {
   setupService: SetupService;
   roleSetupService: RoleSetupService;
   staffDirectoryService: StaffDirectoryService;
+  staffOperationsService: StaffOperationsService;
 };
 
 export function createDiscordCommandSet(dependencies: DiscordCommandSetDependencies): DiscordCommandSet {

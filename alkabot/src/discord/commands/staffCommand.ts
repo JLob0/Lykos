@@ -3,10 +3,12 @@ import type { AuditService } from "../../application/audit/auditService.js";
 import type { PolicyEngine } from "../../application/policy/policyEngine.js";
 import { ALKA_PERMISSIONS, type PolicyActor, type PolicyResult } from "../../application/policy/policyTypes.js";
 import type { StaffDirectoryService } from "../../application/staff/staffDirectoryService.js";
+import type { StaffOperationsService } from "../../application/staff/staffOperationsService.js";
+import type { StaffOperationResult } from "../../application/staff/staffTypes.js";
 import { StaffError } from "../../application/staff/staffTypes.js";
 import { createDiscordPolicyActor } from "../permissions/discordPolicyActor.js";
 import type { ChatInputCommandHandler } from "../interactions/slashCommand.js";
-import { renderStaffCareerPathCard, renderStaffListCard, renderStaffProfileCard } from "../ui/staffCards.js";
+import { renderStaffCareerPathCard, renderStaffListCard, renderStaffOperationCard, renderStaffProfileCard } from "../ui/staffCards.js";
 
 export const staffCommandData = new SlashCommandBuilder()
   .setName("staff")
@@ -29,10 +31,27 @@ export const staffCommandData = new SlashCommandBuilder()
       .setName("department")
       .setDescription("Mostra a trilha de carreira de um departamento.")
       .addStringOption((option) => option.setName("departamento").setDescription("Chave do departamento.").setRequired(true))
+  )
+  .addSubcommand((subcommand) =>
+    subcommand
+      .setName("promote")
+      .setDescription("Planeja ou aplica a proxima promocao de um membro da staff.")
+      .addStringOption((option) => option.setName("id").setDescription("ID interno do membro da staff.").setRequired(true))
+      .addStringOption((option) => option.setName("motivo").setDescription("Motivo da promocao.").setRequired(true))
+      .addBooleanOption((option) => option.setName("confirmar").setDescription("Quando true, aplica a alteracao no banco.").setRequired(false))
+  )
+  .addSubcommand((subcommand) =>
+    subcommand
+      .setName("demote")
+      .setDescription("Planeja ou aplica o rebaixamento anterior da trilha de carreira.")
+      .addStringOption((option) => option.setName("id").setDescription("ID interno do membro da staff.").setRequired(true))
+      .addStringOption((option) => option.setName("motivo").setDescription("Motivo do rebaixamento.").setRequired(true))
+      .addBooleanOption((option) => option.setName("confirmar").setDescription("Quando true, aplica a alteracao no banco.").setRequired(false))
   );
 
 export type StaffCommandDependencies = {
   staffDirectoryService: StaffDirectoryService;
+  staffOperationsService: StaffOperationsService;
   policyEngine: PolicyEngine;
   auditService: AuditService;
 };
@@ -43,11 +62,12 @@ export function createStaffCommand(dependencies: StaffCommandDependencies): Chat
     async execute(interaction: ChatInputCommandInteraction) {
       const subcommand = interaction.options.getSubcommand();
       const actor = actorFromInteraction(interaction);
-      const policyResult = authorizeStaffRead(dependencies.policyEngine, actor, `discord:/staff ${subcommand}`);
+      const action = actionForSubcommand(subcommand);
+      const policyResult = authorizeStaffAction(dependencies.policyEngine, actor, action, `discord:/staff ${subcommand}`);
       if (!policyResult.allowed) {
-        await auditStaffDenied(dependencies.auditService, interaction.id, actor, policyResult, `discord:/staff ${subcommand}`);
+        await auditStaffDenied(dependencies.auditService, interaction.id, actor, policyResult, action, `discord:/staff ${subcommand}`);
         await interaction.reply({
-          content: "Voce nao tem permissao para ver o painel de staff.",
+          content: messageForDeniedAction(action),
           flags: MessageFlags.Ephemeral
         });
         return;
@@ -97,6 +117,16 @@ export function createStaffCommand(dependencies: StaffCommandDependencies): Chat
           return;
         }
 
+        if (subcommand === "promote" || subcommand === "demote") {
+          const result =
+            subcommand === "promote"
+              ? await dependencies.staffOperationsService.promote(operationInputFromInteraction(interaction, actor.id))
+              : await dependencies.staffOperationsService.demote(operationInputFromInteraction(interaction, actor.id));
+          await auditStaffOperation(dependencies.auditService, interaction.id, actor, result, policyResult);
+          await interaction.editReply(renderStaffOperationCard(result));
+          return;
+        }
+
         await interaction.editReply("Subcomando desconhecido para /staff.");
       } catch (error) {
         if (error instanceof StaffError) {
@@ -114,13 +144,50 @@ export function createStaffCommand(dependencies: StaffCommandDependencies): Chat
   };
 }
 
-function authorizeStaffRead(policyEngine: PolicyEngine, actor: PolicyActor, source: string): PolicyResult {
+function authorizeStaffAction(
+  policyEngine: PolicyEngine,
+  actor: PolicyActor,
+  action: (typeof ALKA_PERMISSIONS)[keyof typeof ALKA_PERMISSIONS],
+  source: string
+): PolicyResult {
   return policyEngine.evaluate({
-    action: ALKA_PERMISSIONS.STAFF_READ,
+    action,
     actor,
     resourceType: "STAFF",
     resourceId: "global",
     source
+  });
+}
+
+async function auditStaffOperation(
+  auditService: AuditService,
+  correlationId: string,
+  actor: PolicyActor,
+  result: StaffOperationResult,
+  policyResult: PolicyResult
+): Promise<void> {
+  await auditService.record({
+    correlationId,
+    eventType: eventTypeForOperation(result),
+    actor: {
+      type: actor.type,
+      id: actor.id
+    },
+    target: {
+      type: "STAFF_MEMBER",
+      id: result.member.memberId
+    },
+    source: `discord:/staff ${result.kind === "PROMOTE" ? "promote" : "demote"}`,
+    severity: result.status === "BLOCKED" ? "NOTICE" : "INFO",
+    metadata: {
+      status: result.status,
+      fromPositionKey: result.fromPosition?.key,
+      toPositionKey: result.toPosition?.key,
+      blockReason: result.blockReason,
+      seniorSeatHolderId: result.seniorSeatHolder?.memberId,
+      pendingExternalSync: result.pendingExternalSync,
+      policyMatchedBy: policyResult.matchedBy
+    }
   });
 }
 
@@ -154,6 +221,7 @@ async function auditStaffDenied(
   correlationId: string,
   actor: PolicyActor,
   policyResult: PolicyResult,
+  action: (typeof ALKA_PERMISSIONS)[keyof typeof ALKA_PERMISSIONS],
   source: string
 ): Promise<void> {
   await auditService.record({
@@ -170,10 +238,51 @@ async function auditStaffDenied(
     source,
     severity: "WARNING",
     metadata: {
-      action: ALKA_PERMISSIONS.STAFF_READ,
+      action,
       reason: policyResult.reason
     }
   });
+}
+
+function actionForSubcommand(subcommand: string): (typeof ALKA_PERMISSIONS)[keyof typeof ALKA_PERMISSIONS] {
+  if (subcommand === "promote") {
+    return ALKA_PERMISSIONS.STAFF_PROMOTE;
+  }
+
+  if (subcommand === "demote") {
+    return ALKA_PERMISSIONS.STAFF_DEMOTE;
+  }
+
+  return ALKA_PERMISSIONS.STAFF_READ;
+}
+
+function messageForDeniedAction(action: (typeof ALKA_PERMISSIONS)[keyof typeof ALKA_PERMISSIONS]): string {
+  if (action === ALKA_PERMISSIONS.STAFF_PROMOTE || action === ALKA_PERMISSIONS.STAFF_DEMOTE) {
+    return "Voce nao tem permissao para alterar carreira da staff.";
+  }
+
+  return "Voce nao tem permissao para ver o painel de staff.";
+}
+
+function operationInputFromInteraction(interaction: ChatInputCommandInteraction, actorDiscordUserId: string) {
+  return {
+    memberId: interaction.options.getString("id", true),
+    actorDiscordUserId,
+    reason: interaction.options.getString("motivo", true),
+    confirmed: interaction.options.getBoolean("confirmar", false) ?? false
+  };
+}
+
+function eventTypeForOperation(result: StaffOperationResult): string {
+  const prefix = result.kind === "PROMOTE" ? "STAFF_PROMOTION" : "STAFF_DEMOTION";
+  switch (result.status) {
+    case "APPLIED":
+      return result.kind === "PROMOTE" ? "STAFF_PROMOTED" : "STAFF_DEMOTED";
+    case "BLOCKED":
+      return `${prefix}_BLOCKED`;
+    case "PREVIEW":
+      return `${prefix}_PREVIEWED`;
+  }
 }
 
 function actorFromInteraction(interaction: ChatInputCommandInteraction): PolicyActor {

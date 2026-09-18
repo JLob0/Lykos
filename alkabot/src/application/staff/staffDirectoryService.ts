@@ -16,7 +16,7 @@ export class StaffDirectoryService {
   public async listStaff(input: StaffListInput = {}): Promise<{ summary: StaffDirectorySummary; members: StaffMemberProfile[] }> {
     const records = await this.store.listActiveStaff();
     const profiles = records
-      .map(enrichRecord)
+      .map(enrichStaffRecord)
       .filter((profile) => input.departmentKey == null || profile.department?.key === input.departmentKey)
       .sort(compareProfiles)
       .slice(0, input.limit ?? 25);
@@ -26,7 +26,7 @@ export class StaffDirectoryService {
     }
 
     return {
-      summary: createSummary(records.map(enrichRecord)),
+      summary: createSummary(records.map(enrichStaffRecord)),
       members: profiles
     };
   }
@@ -37,7 +37,7 @@ export class StaffDirectoryService {
       throw new StaffError("STAFF_MEMBER_NOT_FOUND", "Membro da staff nao encontrado.");
     }
 
-    return enrichRecord(record);
+    return enrichStaffRecord(record);
   }
 
   public async getProfileByMemberId(memberId: string): Promise<StaffMemberProfile> {
@@ -46,7 +46,7 @@ export class StaffDirectoryService {
       throw new StaffError("STAFF_MEMBER_NOT_FOUND", "Membro da staff nao encontrado.");
     }
 
-    return enrichRecord(record);
+    return enrichStaffRecord(record);
   }
 
   public getCareerPath(departmentKey: string): StaffCareerPath {
@@ -62,7 +62,7 @@ export class StaffDirectoryService {
   }
 }
 
-function enrichRecord(record: StaffMemberRecord): StaffMemberProfile {
+export function enrichStaffRecord(record: StaffMemberRecord): StaffMemberProfile {
   const position = record.positionKey == null ? undefined : getStaffPosition(record.positionKey);
   const departmentKey = record.departmentKey ?? position?.departmentKey;
   const department = departmentKey == null ? undefined : getStaffDepartment(departmentKey);
