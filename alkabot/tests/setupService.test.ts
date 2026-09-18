@@ -67,7 +67,7 @@ describe("SetupService", () => {
     }
   });
 
-  it("creates a dry-run plan without apply actions", async () => {
+  it("creates a dry-run plan with safe database-only apply guidance", async () => {
     const migrationsDirectory = await createMigrationsDirectory(["0001_test"]);
     try {
       const service = new SetupService({
@@ -85,7 +85,7 @@ describe("SetupService", () => {
         expect.arrayContaining([
           expect.objectContaining({
             id: "setup.apply",
-            state: "NOOP"
+            state: "CONFIGURE"
           })
         ])
       );
@@ -191,7 +191,8 @@ function config(overrides: {
       adminRoleIds: new Set(),
       networkReadRoleIds: new Set(),
       auditReadRoleIds: new Set(),
-      setupReadRoleIds: overrides.setupReadRoleIds ?? new Set()
+      setupReadRoleIds: overrides.setupReadRoleIds ?? new Set(),
+      setupWriteRoleIds: new Set()
     }
   };
 }

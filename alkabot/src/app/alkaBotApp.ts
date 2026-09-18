@@ -2,6 +2,7 @@ import { join } from "node:path";
 import Fastify, { type FastifyInstance } from "fastify";
 import { AuditService } from "../application/audit/auditService.js";
 import { PolicyEngine } from "../application/policy/policyEngine.js";
+import { RoleSetupService } from "../application/roles/roleSetupService.js";
 import { SetupService } from "../application/setup/setupService.js";
 import { BridgeRedisMonitor } from "../bridge/bridgeRedisMonitor.js";
 import { BridgeCommandDispatcher } from "../bridge/commandDispatcher.js";
@@ -15,6 +16,7 @@ import { registerHealthRoutes } from "../health/healthRoutes.js";
 import { AuditEventRepository } from "../infrastructure/database/auditEventRepository.js";
 import { DatabaseProvider } from "../infrastructure/database/databaseProvider.js";
 import { MigrationStatusRepository } from "../infrastructure/database/migrationStatusRepository.js";
+import { RoleSetupRepository } from "../infrastructure/database/roleSetupRepository.js";
 import { ServerNodeRepository } from "../infrastructure/database/serverNodeRepository.js";
 import { RedisProvider } from "../infrastructure/redis/redisProvider.js";
 import type { AppLogger } from "../logging/logger.js";
@@ -31,6 +33,7 @@ export class LykosApp {
   private readonly auditService: AuditService;
   private readonly policyEngine: PolicyEngine;
   private readonly setupService: SetupService;
+  private readonly roleSetupService: RoleSetupService;
 
   public constructor(
     private readonly config: AppConfig,
@@ -45,6 +48,7 @@ export class LykosApp {
     this.serverRegistry = new ServerRegistry(config.bridge.heartbeatStaleMs);
     this.auditService = new AuditService(new AuditEventRepository(this.database), logger);
     this.policyEngine = new PolicyEngine(config);
+    this.roleSetupService = new RoleSetupService(new RoleSetupRepository(this.database));
     this.bridgeMonitor = new BridgeRedisMonitor(
       config,
       this.redis,
@@ -64,7 +68,8 @@ export class LykosApp {
       registry: this.serverRegistry,
       policyEngine: this.policyEngine,
       auditService: this.auditService,
-      setupService: this.setupService
+      setupService: this.setupService,
+      roleSetupService: this.roleSetupService
     });
     const interactionRouter = new InteractionRouter(commandSet.chatInputCommands, commandSet.buttonHandlers, logger);
     this.discord = new DiscordRuntime(config, logger, interactionRouter);

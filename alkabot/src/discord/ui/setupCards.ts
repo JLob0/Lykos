@@ -1,3 +1,4 @@
+import type { RoleApplyResult, RolePlan, RolePlanAction } from "../../application/roles/rolePlannerTypes.js";
 import type { SetupCheck, SetupDoctorReport, SetupPlanAction, SetupPlanReport } from "../../application/setup/setupTypes.js";
 import { alkaContainer, componentsV2Message, separator, textDisplay, type ComponentsV2Message } from "./componentsV2.js";
 
@@ -38,12 +39,56 @@ export function renderSetupPlanCard(report: SetupPlanReport): ComponentsV2Messag
   ]);
 }
 
+export function renderRolePlanCard(plan: RolePlan): ComponentsV2Message {
+  return componentsV2Message([
+    alkaContainer([
+      textDisplay(
+        [
+          "## LYKOS SETUP - ROLE PLANNER",
+          `**Modo:** ${plan.mode}`,
+          `**Roles atuais:** ${plan.summary.currentRoles}/${plan.maxRoles}`,
+          `**Projetado:** ${plan.summary.projectedRoles}/${plan.maxRoles}`,
+          `**Buffer livre:** ${plan.summary.remainingCapacity}`,
+          `**Acoes:** create ${plan.summary.CREATE} / reuse ${plan.summary.REUSE} / managed ${plan.summary.MANAGED} / conflict ${plan.summary.CONFLICT}`
+        ].join("\n")
+      ),
+      separator(),
+      textDisplay(plan.actions.slice(0, 15).map(renderRoleActionLine).join("\n")),
+      textDisplay(plan.actions.length > 15 ? `Mais ${plan.actions.length - 15} cargo(s) omitidos neste card.` : "Nenhuma acao adicional omitida.")
+    ])
+  ]);
+}
+
+export function renderRoleApplyCard(result: RoleApplyResult, label: "IMPORT" | "APPLY"): ComponentsV2Message {
+  return componentsV2Message([
+    alkaContainer([
+      textDisplay(
+        [
+          `## LYKOS SETUP - ROLE ${label}`,
+          `**Run:** ${result.runId}`,
+          `**Modo:** ${result.plan.mode}`,
+          `**Persistidos:** ${result.plan.actions.length}`,
+          `**Mutacao Discord:** nao`,
+          `**Resumo:** create ${result.plan.summary.CREATE} / reuse ${result.plan.summary.REUSE} / managed ${result.plan.summary.MANAGED} / conflict ${result.plan.summary.CONFLICT}`
+        ].join("\n")
+      ),
+      separator(),
+      textDisplay(result.plan.actions.slice(0, 12).map(renderRoleActionLine).join("\n"))
+    ])
+  ]);
+}
+
 function renderCheckLine(check: SetupCheck): string {
   return `**${stateLabel(check.state)} ${check.label}**\n${check.detail}`;
 }
 
 function renderActionLine(action: SetupPlanAction): string {
   return `**[${action.state}] ${action.target}**\n${action.detail}`;
+}
+
+function renderRoleActionLine(action: RolePlanAction): string {
+  const id = action.discordRoleId == null ? "" : ` \`${action.discordRoleId}\``;
+  return `**[${action.state}] ${action.blueprint.name}**${id}\n${action.detail}`;
 }
 
 function stateLabel(state: SetupCheck["state"]): string {

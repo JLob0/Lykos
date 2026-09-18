@@ -31,6 +31,15 @@ describe("PolicyEngine", () => {
     });
   });
 
+  it("allows a setup write role for setup import and apply", () => {
+    const engine = new PolicyEngine(configWithPolicy({ setupWriteRoleIds: new Set(["role_setup_write"]) }));
+
+    expect(engine.evaluate(request(actor({ roleIds: ["role_setup_write"] }), ALKA_PERMISSIONS.SETUP_WRITE))).toMatchObject({
+      decision: "ALLOW",
+      matchedBy: "ACTION_ROLE"
+    });
+  });
+
   it("denies in production when no binding matches", () => {
     const engine = new PolicyEngine(configWithPolicy({ environment: "production", networkReadRoleIds: new Set(["other"]) }));
 
@@ -66,6 +75,7 @@ function configWithPolicy(overrides: {
   networkReadRoleIds?: ReadonlySet<string>;
   auditReadRoleIds?: ReadonlySet<string>;
   setupReadRoleIds?: ReadonlySet<string>;
+  setupWriteRoleIds?: ReadonlySet<string>;
 }): AppConfig {
   return {
     app: {
@@ -101,7 +111,8 @@ function configWithPolicy(overrides: {
       adminRoleIds: overrides.adminRoleIds ?? new Set(),
       networkReadRoleIds: overrides.networkReadRoleIds ?? new Set(),
       auditReadRoleIds: overrides.auditReadRoleIds ?? new Set(),
-      setupReadRoleIds: overrides.setupReadRoleIds ?? new Set()
+      setupReadRoleIds: overrides.setupReadRoleIds ?? new Set(),
+      setupWriteRoleIds: overrides.setupWriteRoleIds ?? new Set()
     }
   };
 }

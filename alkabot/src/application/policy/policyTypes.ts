@@ -1,7 +1,8 @@
 export const ALKA_PERMISSIONS = {
   NETWORK_READ: "alka.network.read",
   AUDIT_READ: "alka.audit.read",
-  SETUP_READ: "alka.setup.read"
+  SETUP_READ: "alka.setup.read",
+  SETUP_WRITE: "alka.setup.write"
 } as const;
 
 export type AlkaPermission = (typeof ALKA_PERMISSIONS)[keyof typeof ALKA_PERMISSIONS];

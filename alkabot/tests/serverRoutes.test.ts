@@ -40,7 +40,8 @@ const config: AppConfig = {
     adminRoleIds: new Set(),
     networkReadRoleIds: new Set(),
     auditReadRoleIds: new Set(),
-    setupReadRoleIds: new Set()
+    setupReadRoleIds: new Set(),
+    setupWriteRoleIds: new Set()
   }
 };
 

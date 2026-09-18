@@ -49,6 +49,7 @@ const envSchema = z.object({
   POLICY_NETWORK_READ_ROLE_IDS: csvSchema,
   POLICY_AUDIT_READ_ROLE_IDS: csvSchema,
   POLICY_SETUP_READ_ROLE_IDS: csvSchema,
+  POLICY_SETUP_WRITE_ROLE_IDS: csvSchema,
   INTERNAL_API_TOKEN: optionalSecretSchema
 });
 
@@ -95,6 +96,7 @@ export type AppConfig = {
     networkReadRoleIds: ReadonlySet<string>;
     auditReadRoleIds: ReadonlySet<string>;
     setupReadRoleIds: ReadonlySet<string>;
+    setupWriteRoleIds: ReadonlySet<string>;
   };
 };
 
@@ -160,7 +162,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
       adminRoleIds: parsed.POLICY_ADMIN_ROLE_IDS,
       networkReadRoleIds: parsed.POLICY_NETWORK_READ_ROLE_IDS,
       auditReadRoleIds: parsed.POLICY_AUDIT_READ_ROLE_IDS,
-      setupReadRoleIds: parsed.POLICY_SETUP_READ_ROLE_IDS
+      setupReadRoleIds: parsed.POLICY_SETUP_READ_ROLE_IDS,
+      setupWriteRoleIds: parsed.POLICY_SETUP_WRITE_ROLE_IDS
     }
   };
 }

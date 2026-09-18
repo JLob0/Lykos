@@ -52,7 +52,7 @@ export class SetupService {
       {
         id: "discord.commands",
         state: "REUSE",
-        target: "/network status, /setup doctor, /setup plan",
+        target: "/network status, /setup doctor, /setup plan, /setup roles, /setup import, /setup apply",
         detail: "Comandos modelados na source; registro real continua via npm run bot:discord:register."
       },
       {
@@ -75,9 +75,9 @@ export class SetupService {
       },
       {
         id: "setup.apply",
-        state: "NOOP",
+        state: "CONFIGURE",
         target: "/setup apply",
-        detail: "Fora deste bloco. Nenhuma alteracao em cargos, canais ou permissoes sera aplicada pelo dry-run."
+        detail: "Apply de cargos consolida blueprints no banco; criacao fisica no Discord ainda exige confirmacao/snapshot em bloco futuro."
       }
     ];
 

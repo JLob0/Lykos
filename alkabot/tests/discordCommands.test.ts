@@ -3,6 +3,8 @@ import type { ChatInputCommandInteraction } from "discord.js";
 import { describe, expect, it, vi } from "vitest";
 import type { AuditService } from "../src/application/audit/auditService.js";
 import { PolicyEngine } from "../src/application/policy/policyEngine.js";
+import type { RoleSetupService } from "../src/application/roles/roleSetupService.js";
+import type { RoleApplyResult, RolePlan } from "../src/application/roles/rolePlannerTypes.js";
 import type { SetupService } from "../src/application/setup/setupService.js";
 import type { SetupDoctorReport } from "../src/application/setup/setupTypes.js";
 import { ServerRegistry, type ServerNodeView } from "../src/bridge/serverRegistry.js";
@@ -34,6 +36,15 @@ describe("Discord command registry", () => {
         }),
         expect.objectContaining({
           name: "plan"
+        }),
+        expect.objectContaining({
+          name: "roles"
+        }),
+        expect.objectContaining({
+          name: "import"
+        }),
+        expect.objectContaining({
+          name: "apply"
         })
       ])
     });
@@ -148,8 +159,10 @@ describe("setup command policy", () => {
   it("runs setup doctor and audits when the actor has setup read permission", async () => {
     const auditService = auditServiceStub();
     const setupService = setupServiceStub();
+    const roleSetupService = roleSetupServiceStub();
     const command = createSetupCommand({
       setupService,
+      roleSetupService,
       policyEngine: new PolicyEngine(policyConfig({ setupReadRoleIds: new Set(["role_setup"]) })),
       auditService
     });
@@ -181,6 +194,72 @@ describe("setup command policy", () => {
       })
     );
   });
+
+  it("renders role planner when the actor has setup read permission", async () => {
+    const auditService = auditServiceStub();
+    const roleSetupService = roleSetupServiceStub();
+    const command = createSetupCommand({
+      setupService: setupServiceStub(),
+      roleSetupService,
+      policyEngine: new PolicyEngine(policyConfig({ setupReadRoleIds: new Set(["role_setup"]) })),
+      auditService
+    });
+    const interaction = chatInputInteraction({
+      roleIds: ["role_setup"],
+      subcommand: "roles",
+      optionMode: "LEAN",
+      guildRoles: [
+        {
+          id: "role_existing",
+          name: "Alka Staff"
+        }
+      ]
+    });
+
+    await command.execute(interaction);
+
+    expect(roleSetupService.planRoles).toHaveBeenCalledWith(
+      expect.objectContaining({
+        mode: "LEAN",
+        currentRoles: expect.arrayContaining([
+          expect.objectContaining({
+            id: "role_existing",
+            name: "Alka Staff"
+          })
+        ])
+      })
+    );
+    expect(interaction.editReply).toHaveBeenCalledWith(expect.objectContaining({ flags: MessageFlags.IsComponentsV2 }));
+    expect(auditService.record).toHaveBeenCalledWith(expect.objectContaining({ eventType: "SETUP_ROLE_PLAN_VIEWED" }));
+  });
+
+  it("imports role blueprint when the actor has setup write permission", async () => {
+    const auditService = auditServiceStub();
+    const roleSetupService = roleSetupServiceStub();
+    const command = createSetupCommand({
+      setupService: setupServiceStub(),
+      roleSetupService,
+      policyEngine: new PolicyEngine(policyConfig({ setupWriteRoleIds: new Set(["role_setup_write"]) })),
+      auditService
+    });
+    const interaction = chatInputInteraction({
+      roleIds: ["role_setup_write"],
+      subcommand: "import",
+      optionMode: "EXPANDED"
+    });
+
+    await command.execute(interaction);
+
+    expect(roleSetupService.importRoles).toHaveBeenCalledWith(
+      expect.objectContaining({
+        mode: "EXPANDED",
+        correlationId: "interaction_test",
+        actorId: "111"
+      })
+    );
+    expect(interaction.editReply).toHaveBeenCalledWith(expect.objectContaining({ flags: MessageFlags.IsComponentsV2 }));
+    expect(auditService.record).toHaveBeenCalledWith(expect.objectContaining({ eventType: "SETUP_ROLE_IMPORT_APPLIED" }));
+  });
 });
 
 function serverNode(overrides: Partial<ServerNodeView>): ServerNodeView {
@@ -201,7 +280,13 @@ function serverNode(overrides: Partial<ServerNodeView>): ServerNodeView {
   };
 }
 
-function chatInputInteraction(input: { roleIds: string[]; subcommand?: string; botPermissionNames?: string[] }): ChatInputCommandInteraction {
+function chatInputInteraction(input: {
+  roleIds: string[];
+  subcommand?: string;
+  botPermissionNames?: string[];
+  optionMode?: string;
+  guildRoles?: Array<{ id: string; name: string; managed?: boolean; position?: number; editable?: boolean }>;
+}): ChatInputCommandInteraction {
   return {
     id: "interaction_test",
     user: {
@@ -209,7 +294,21 @@ function chatInputInteraction(input: { roleIds: string[]; subcommand?: string; b
     },
     guildId: "guild_test",
     guild: {
-      ownerId: "owner_test"
+      ownerId: "owner_test",
+      roles: {
+        cache: new Map(
+          (input.guildRoles ?? []).map((role) => [
+            role.id,
+            {
+              id: role.id,
+              name: role.name,
+              managed: role.managed ?? false,
+              position: role.position ?? 1,
+              editable: role.editable ?? true
+            }
+          ])
+        )
+      }
     },
     member: {
       roles: input.roleIds
@@ -218,7 +317,8 @@ function chatInputInteraction(input: { roleIds: string[]; subcommand?: string; b
       toArray: () => input.botPermissionNames ?? []
     },
     options: {
-      getSubcommand: () => input.subcommand ?? "status"
+      getSubcommand: () => input.subcommand ?? "status",
+      getString: () => input.optionMode ?? "LEAN"
     },
     reply: vi.fn(),
     deferReply: vi.fn(),
@@ -257,7 +357,55 @@ function setupServiceStub(): SetupService {
   } as unknown as SetupService;
 }
 
-function policyConfig(overrides: { networkReadRoleIds?: ReadonlySet<string>; setupReadRoleIds?: ReadonlySet<string> }): AppConfig {
+function roleSetupServiceStub(): RoleSetupService {
+  const plan: RolePlan = {
+    mode: "LEAN",
+    maxRoles: 250,
+    generatedAt: new Date("2026-09-18T15:00:00.000Z"),
+    actions: [
+      {
+        state: "REUSE",
+        blueprint: {
+          key: "alka.staff",
+          mode: "LEAN",
+          name: "Alka Staff",
+          colorHex: "#8B5CF6",
+          hoist: true,
+          mentionable: false,
+          group: "staff",
+          priority: 100
+        },
+        discordRoleId: "role_existing",
+        detail: "Cargo existente pode ser reaproveitado."
+      }
+    ],
+    summary: {
+      CREATE: 0,
+      REUSE: 1,
+      MANAGED: 0,
+      CONFLICT: 0,
+      currentRoles: 1,
+      projectedRoles: 1,
+      remainingCapacity: 239
+    }
+  };
+  const result: RoleApplyResult = {
+    runId: "setup_role_import_test",
+    plan
+  };
+
+  return {
+    planRoles: vi.fn(async () => plan),
+    importRoles: vi.fn(async () => result),
+    applyRoles: vi.fn(async () => result)
+  } as unknown as RoleSetupService;
+}
+
+function policyConfig(overrides: {
+  networkReadRoleIds?: ReadonlySet<string>;
+  setupReadRoleIds?: ReadonlySet<string>;
+  setupWriteRoleIds?: ReadonlySet<string>;
+}): AppConfig {
   return {
     app: {
       name: "Lykos",
@@ -292,7 +440,8 @@ function policyConfig(overrides: { networkReadRoleIds?: ReadonlySet<string>; set
       adminRoleIds: new Set(),
       networkReadRoleIds: overrides.networkReadRoleIds ?? new Set(),
       auditReadRoleIds: new Set(),
-      setupReadRoleIds: overrides.setupReadRoleIds ?? new Set()
+      setupReadRoleIds: overrides.setupReadRoleIds ?? new Set(),
+      setupWriteRoleIds: overrides.setupWriteRoleIds ?? new Set()
     }
   };
 }
