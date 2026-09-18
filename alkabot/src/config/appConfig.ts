@@ -5,6 +5,7 @@ const logLevelSchema = z.enum(["trace", "debug", "info", "warn", "error", "fatal
 
 const portSchema = z.coerce.number().int().min(1).max(65_535);
 const durationMsSchema = z.coerce.number().int().min(250);
+const durationSecondsSchema = z.coerce.number().int().min(30);
 const booleanSchema = z
   .string()
   .trim()
@@ -50,6 +51,8 @@ const envSchema = z.object({
   POLICY_AUDIT_READ_ROLE_IDS: csvSchema,
   POLICY_SETUP_READ_ROLE_IDS: csvSchema,
   POLICY_SETUP_WRITE_ROLE_IDS: csvSchema,
+  LINK_CODE_TTL_SECONDS: durationSecondsSchema.default(300),
+  LINK_CODE_RATE_LIMIT_SECONDS: durationSecondsSchema.default(30),
   INTERNAL_API_TOKEN: optionalSecretSchema
 });
 
@@ -97,6 +100,10 @@ export type AppConfig = {
     auditReadRoleIds: ReadonlySet<string>;
     setupReadRoleIds: ReadonlySet<string>;
     setupWriteRoleIds: ReadonlySet<string>;
+  };
+  identity: {
+    linkCodeTtlMs: number;
+    linkCodeRateLimitMs: number;
   };
 };
 
@@ -164,6 +171,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
       auditReadRoleIds: parsed.POLICY_AUDIT_READ_ROLE_IDS,
       setupReadRoleIds: parsed.POLICY_SETUP_READ_ROLE_IDS,
       setupWriteRoleIds: parsed.POLICY_SETUP_WRITE_ROLE_IDS
+    },
+    identity: {
+      linkCodeTtlMs: parsed.LINK_CODE_TTL_SECONDS * 1000,
+      linkCodeRateLimitMs: parsed.LINK_CODE_RATE_LIMIT_SECONDS * 1000
     }
   };
 }

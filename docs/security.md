@@ -26,3 +26,12 @@ The current command bus uses an expiring `command-envelope.v1` payload inside th
 - Audit metadata is structured JSON so future dashboards can filter by event type, actor, target, source, severity, and correlation ID.
 - `/setup doctor` and `/setup plan` require `alka.setup.read` and are audited. They are read-only and must not create roles, channels, permission overwrites, or database rows beyond audit records.
 - `/setup import` and `/setup apply` require `alka.setup.write`; in this block they only persist intended role blueprints and apply-run records. Physical Discord role creation still requires a later confirmation/snapshot workflow.
+
+## Identity Linking
+
+- Minecraft link codes are generated with cryptographic randomness and normalized as `ALKA-XXXXX`.
+- Lykos stores only a SHA-256 hash of the code, never the full temporary code.
+- Codes are single-use, expire through `LINK_CODE_TTL_SECONDS`, and are rate-limited per Minecraft UUID through `LINK_CODE_RATE_LIMIT_SECONDS`.
+- `/link codigo:...` blocks replay, expired codes, already-linked Discord users, and already-linked Minecraft UUIDs.
+- `/link`, successful links, denied links, and `/unlink` are recorded in `audit_events` with correlation IDs.
+- The internal code creation route must use `INTERNAL_API_TOKEN` outside development/test and should only be reachable by trusted Minecraft-side infrastructure.

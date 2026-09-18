@@ -28,8 +28,9 @@ This foundation contains only the safe base:
 - Audit service foundation backed by `audit_events`, with correlation IDs, actor/target metadata, severity, and JSON metadata.
 - Setup doctor and setup dry-run for validating Discord config, bot permissions, policies, DB/Redis/Bridge health, migrations, and bridge heartbeats without applying changes.
 - Role planner foundation with `LEAN`, `EXPANDED`, and `FULL` catalogs, Discord role inventory comparison, role capacity budgeting, and idempotent MySQL persistence for role blueprints.
+- Identity linking foundation with hashed single-use Minecraft link codes, `/link`, `/unlink`, Discord account rows, Minecraft account rows, and active Discord <-> Minecraft identities.
 
-Feature domains such as identity linking, staff promotions, role sync, tickets, appeals, booster rewards, and chat bridge must be added in vertical slices after this base is stable.
+Feature domains such as staff promotions, role sync, tickets, appeals, booster rewards, and chat bridge must be added in vertical slices after this base is stable.
 
 ## Redis Command Bus
 
@@ -46,6 +47,16 @@ Feature domains such as identity linking, staff promotions, role sync, tickets, 
 - Current command: `/network status`, guarded by `alka.network.read` and audited on view, refresh, and deny.
 - Setup commands: `/setup doctor`, `/setup plan`, and `/setup roles`, guarded by `alka.setup.read` and audited on view/deny.
 - Setup write commands: `/setup import` and `/setup apply`, guarded by `alka.setup.write`; they persist role blueprints/runs only and do not mutate Discord roles.
+- Identity commands: `/link` checks current link status, `/link codigo:ALKA-XXXXX` consumes a Minecraft-generated code, and `/unlink` removes the active link. These commands are self-service and audited.
+
+## Identity Linking
+
+- The Minecraft side asks Lykos for a temporary code with `POST /internal/v1/link-codes`.
+- Lykos stores only a SHA-256 hash of the normalized code in `link_codes`.
+- `/link codigo:...` validates the code hash, expiration, consumed state, Discord conflict, and Minecraft conflict before creating a `linked_identities` row.
+- `discord_accounts` and `minecraft_accounts` keep stable platform identifiers and last-known display metadata.
+- Generated active-key columns on `linked_identities` enforce one active Discord link and one active Minecraft link while preserving unlink history.
+- `/unlink` marks the active row as `UNLINKED` instead of deleting history.
 
 ## Policy And Audit
 

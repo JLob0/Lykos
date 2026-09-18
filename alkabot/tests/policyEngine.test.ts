@@ -113,6 +113,10 @@ function configWithPolicy(overrides: {
       auditReadRoleIds: overrides.auditReadRoleIds ?? new Set(),
       setupReadRoleIds: overrides.setupReadRoleIds ?? new Set(),
       setupWriteRoleIds: overrides.setupWriteRoleIds ?? new Set()
+    },
+    identity: {
+      linkCodeTtlMs: 300_000,
+      linkCodeRateLimitMs: 30_000
     }
   };
 }

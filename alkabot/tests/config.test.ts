@@ -12,6 +12,8 @@ describe("loadConfig", () => {
     expect(config.bridge.transportEnabled).toBe(false);
     expect(config.bridge.commandTtlMs).toBe(30_000);
     expect(config.bridge.commandResultWaitMs).toBe(3_000);
+    expect(config.identity.linkCodeTtlMs).toBe(300_000);
+    expect(config.identity.linkCodeRateLimitMs).toBe(30_000);
     expect(config.policy.adminDiscordUserIds.size).toBe(0);
     expect(config.policy.networkReadRoleIds.size).toBe(0);
     expect(config.policy.setupReadRoleIds.size).toBe(0);
@@ -40,5 +42,15 @@ describe("loadConfig", () => {
     expect([...config.policy.networkReadRoleIds]).toEqual(["333"]);
     expect([...config.policy.setupReadRoleIds]).toEqual(["444", "555"]);
     expect([...config.policy.setupWriteRoleIds]).toEqual(["666"]);
+  });
+
+  it("parses link code timing settings in seconds", () => {
+    const config = loadConfig({
+      LINK_CODE_TTL_SECONDS: "600",
+      LINK_CODE_RATE_LIMIT_SECONDS: "45"
+    });
+
+    expect(config.identity.linkCodeTtlMs).toBe(600_000);
+    expect(config.identity.linkCodeRateLimitMs).toBe(45_000);
   });
 });

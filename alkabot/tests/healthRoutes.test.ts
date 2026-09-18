@@ -40,6 +40,10 @@ const config: AppConfig = {
     auditReadRoleIds: new Set(),
     setupReadRoleIds: new Set(),
     setupWriteRoleIds: new Set()
+  },
+  identity: {
+    linkCodeTtlMs: 300_000,
+    linkCodeRateLimitMs: 30_000
   }
 };
 

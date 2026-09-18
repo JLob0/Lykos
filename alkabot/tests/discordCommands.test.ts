@@ -2,6 +2,8 @@ import { ComponentType, MessageFlags } from "discord-api-types/v10";
 import type { ChatInputCommandInteraction } from "discord.js";
 import { describe, expect, it, vi } from "vitest";
 import type { AuditService } from "../src/application/audit/auditService.js";
+import type { IdentityLinkService } from "../src/application/identity/identityLinkService.js";
+import type { LinkedIdentity } from "../src/application/identity/identityTypes.js";
 import { PolicyEngine } from "../src/application/policy/policyEngine.js";
 import type { RoleSetupService } from "../src/application/roles/roleSetupService.js";
 import type { RoleApplyResult, RolePlan } from "../src/application/roles/rolePlannerTypes.js";
@@ -10,15 +12,16 @@ import type { SetupDoctorReport } from "../src/application/setup/setupTypes.js";
 import { ServerRegistry, type ServerNodeView } from "../src/bridge/serverRegistry.js";
 import type { AppConfig } from "../src/config/appConfig.js";
 import { createApplicationCommandPayloads } from "../src/discord/commands/commandRegistry.js";
+import { createLinkCommand, createUnlinkCommand } from "../src/discord/commands/identityCommands.js";
 import { createNetworkStatusCommand } from "../src/discord/commands/networkStatusCommand.js";
 import { createSetupCommand } from "../src/discord/commands/setupCommand.js";
 import { NETWORK_STATUS_REFRESH_ID, renderNetworkStatusCard } from "../src/discord/ui/networkStatusCard.js";
 
 describe("Discord command registry", () => {
-  it("exports the network and setup slash command payloads", () => {
+  it("exports the network, setup and identity slash command payloads", () => {
     const payloads = createApplicationCommandPayloads();
 
-    expect(payloads.map((payload) => payload.name)).toEqual(["network", "setup"]);
+    expect(payloads.map((payload) => payload.name)).toEqual(["network", "setup", "link", "unlink"]);
     expect(payloads[0]).toMatchObject({
       name: "network",
       description: "Operacoes e diagnosticos da Network Alka.",
@@ -47,6 +50,12 @@ describe("Discord command registry", () => {
           name: "apply"
         })
       ])
+    });
+    expect(payloads[2]).toMatchObject({
+      name: "link"
+    });
+    expect(payloads[3]).toMatchObject({
+      name: "unlink"
     });
   });
 });
@@ -262,6 +271,73 @@ describe("setup command policy", () => {
   });
 });
 
+describe("identity link commands", () => {
+  it("renders link help and audits when Discord is not linked yet", async () => {
+    const auditService = auditServiceStub();
+    const identityLinkService = identityLinkServiceStub();
+    const command = createLinkCommand({ identityLinkService, auditService });
+    const interaction = chatInputInteraction({ roleIds: [], stringOption: null });
+
+    await command.execute(interaction);
+
+    expect(identityLinkService.getLinkedIdentity).toHaveBeenCalledWith("111");
+    expect(interaction.reply).toHaveBeenCalledWith(expect.objectContaining({ flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2 }));
+    expect(auditService.record).toHaveBeenCalledWith(expect.objectContaining({ eventType: "IDENTITY_LINK_STATUS_VIEWED" }));
+  });
+
+  it("claims a Minecraft link code and audits the identity link", async () => {
+    const auditService = auditServiceStub();
+    const identity = linkedIdentity();
+    const identityLinkService = identityLinkServiceStub({ claimResult: identity });
+    const command = createLinkCommand({ identityLinkService, auditService });
+    const interaction = chatInputInteraction({ roleIds: [], stringOption: "ALKA-ABCDE" });
+
+    await command.execute(interaction);
+
+    expect(identityLinkService.claimLinkCode).toHaveBeenCalledWith(
+      expect.objectContaining({
+        code: "ALKA-ABCDE",
+        discordUserId: "111",
+        discordUsername: "MestreDEV"
+      })
+    );
+    expect(interaction.reply).toHaveBeenCalledWith(expect.objectContaining({ flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2 }));
+    expect(auditService.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: "IDENTITY_LINKED",
+        target: {
+          type: "IDENTITY",
+          id: identity.identityId
+        }
+      })
+    );
+  });
+
+  it("unlinks the active Discord identity and audits the removal", async () => {
+    const auditService = auditServiceStub();
+    const identity = linkedIdentity();
+    const identityLinkService = identityLinkServiceStub({ unlinkResult: identity });
+    const command = createUnlinkCommand({ identityLinkService, auditService });
+    const interaction = chatInputInteraction({ roleIds: [] });
+
+    await command.execute(interaction);
+
+    expect(identityLinkService.unlinkDiscord).toHaveBeenCalledWith({
+      discordUserId: "111"
+    });
+    expect(interaction.reply).toHaveBeenCalledWith(expect.objectContaining({ flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2 }));
+    expect(auditService.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: "IDENTITY_UNLINKED",
+        target: {
+          type: "IDENTITY",
+          id: identity.identityId
+        }
+      })
+    );
+  });
+});
+
 function serverNode(overrides: Partial<ServerNodeView>): ServerNodeView {
   return {
     serverId: "rankup-01",
@@ -285,12 +361,15 @@ function chatInputInteraction(input: {
   subcommand?: string;
   botPermissionNames?: string[];
   optionMode?: string;
+  stringOption?: string | null;
   guildRoles?: Array<{ id: string; name: string; managed?: boolean; position?: number; editable?: boolean }>;
 }): ChatInputCommandInteraction {
   return {
     id: "interaction_test",
     user: {
-      id: "111"
+      id: "111",
+      username: "MestreDEV",
+      globalName: "Mestre"
     },
     guildId: "guild_test",
     guild: {
@@ -318,12 +397,31 @@ function chatInputInteraction(input: {
     },
     options: {
       getSubcommand: () => input.subcommand ?? "status",
-      getString: () => input.optionMode ?? "LEAN"
+      getString: () => (Object.prototype.hasOwnProperty.call(input, "stringOption") ? input.stringOption : (input.optionMode ?? "LEAN"))
     },
     reply: vi.fn(),
     deferReply: vi.fn(),
     editReply: vi.fn()
   } as unknown as ChatInputCommandInteraction;
+}
+
+function linkedIdentity(overrides: Partial<LinkedIdentity> = {}): LinkedIdentity {
+  return {
+    identityId: "identity_test",
+    discordUserId: "111",
+    minecraftUuid: "123e4567-e89b-12d3-a456-426614174000",
+    minecraftName: "MestreBR",
+    linkedAt: new Date("2026-09-18T15:00:00.000Z"),
+    ...overrides
+  };
+}
+
+function identityLinkServiceStub(overrides: { linkedIdentity?: LinkedIdentity; claimResult?: LinkedIdentity; unlinkResult?: LinkedIdentity } = {}): IdentityLinkService {
+  return {
+    getLinkedIdentity: vi.fn(async () => overrides.linkedIdentity),
+    claimLinkCode: vi.fn(async () => overrides.claimResult ?? linkedIdentity()),
+    unlinkDiscord: vi.fn(async () => overrides.unlinkResult ?? linkedIdentity())
+  } as unknown as IdentityLinkService;
 }
 
 function auditServiceStub(): AuditService {
@@ -442,6 +540,10 @@ function policyConfig(overrides: {
       auditReadRoleIds: new Set(),
       setupReadRoleIds: overrides.setupReadRoleIds ?? new Set(),
       setupWriteRoleIds: overrides.setupWriteRoleIds ?? new Set()
+    },
+    identity: {
+      linkCodeTtlMs: 300_000,
+      linkCodeRateLimitMs: 30_000
     }
   };
 }
