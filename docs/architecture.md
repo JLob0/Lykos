@@ -30,8 +30,9 @@ This foundation contains only the safe base:
 - Role planner foundation with `LEAN`, `EXPANDED`, and `FULL` catalogs, Discord role inventory comparison, role capacity budgeting, and idempotent MySQL persistence for role blueprints.
 - Identity linking foundation with hashed single-use Minecraft link codes, `/link`, `/unlink`, Discord account rows, Minecraft account rows, and active Discord <-> Minecraft identities.
 - Profile aggregation foundation with provider-based snapshots, `/profile`, Components V2 rendering, and the internal `GET /internal/v1/players/:uuid/profile` route.
+- Staff domain foundation with departments, positions, career paths, active staff assignments, `/staff list`, `/staff profile`, and `/staff department`.
 
-Feature domains such as staff promotions, role sync, tickets, appeals, booster rewards, Minecraft profile providers, and chat bridge must be added in vertical slices after this base is stable.
+Feature domains such as staff promotions/demotions, role sync, tickets, appeals, booster rewards, Minecraft profile providers, and chat bridge must be added in vertical slices after this base is stable.
 
 ## Redis Command Bus
 
@@ -50,6 +51,7 @@ Feature domains such as staff promotions, role sync, tickets, appeals, booster r
 - Setup write commands: `/setup import` and `/setup apply`, guarded by `alka.setup.write`; they persist role blueprints/runs only and do not mutate Discord roles.
 - Identity commands: `/link` checks current link status, `/link codigo:ALKA-XXXXX` consumes a Minecraft-generated code, and `/unlink` removes the active link. These commands are self-service and audited.
 - Profile command: `/profile` renders the caller's linked Minecraft profile, and `/profile uuid:<minecraft-uuid>` renders a direct UUID lookup from the aggregation layer.
+- Staff commands: `/staff list`, `/staff profile`, and `/staff department` are read-only and guarded by `alka.staff.read`.
 
 ## Identity Linking
 
@@ -68,10 +70,18 @@ Feature domains such as staff promotions, role sync, tickets, appeals, booster r
 - Future Minecraft providers can add rank, VIP, economy, clan, online time, stats, current server, and registration data without changing Discord command handlers.
 - `/profile` is ephemeral until privacy controls are expanded, preventing accidental public exposure while the provider surface grows.
 
+## Staff Domain
+
+- `staff_departments`, `staff_positions`, `staff_members`, `staff_assignments`, and `staff_history` store the staff directory foundation.
+- `StaffDirectoryService` enriches active assignments with the local career catalog, previous/next position context, and senior-seat summary.
+- `/staff list` shows active staff and summary counts; `/staff profile` shows one member; `/staff department` shows the career path for a department.
+- This block is deliberately read-only. Promotion, demotion, senior-seat enforcement, Discord role mutation, LuckPerms sync, and reconciliation are handled by later staff operation blocks.
+
 ## Policy And Audit
 
 - `PolicyEngine` consumes normalized actors and permission requests; Discord-specific member/role parsing is isolated under `alkabot/src/discord/permissions`.
 - Admin Discord users, admin roles, network-read roles, and audit-read roles are configured through comma-separated environment variables.
+- Staff read visibility uses `POLICY_STAFF_READ_ROLE_IDS` unless the actor is an admin user or admin role.
 - Production denies by default when no matching policy exists. Development/test allow only when no policy bindings are configured, keeping local bootstrapping painless without weakening production.
 - `AuditService` centralizes audit record creation and persists through `AuditEventRepository`, reusing the existing `audit_events` migration.
 

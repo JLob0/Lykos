@@ -11,6 +11,8 @@ import type { RoleSetupService } from "../src/application/roles/roleSetupService
 import type { RoleApplyResult, RolePlan } from "../src/application/roles/rolePlannerTypes.js";
 import type { SetupService } from "../src/application/setup/setupService.js";
 import type { SetupDoctorReport } from "../src/application/setup/setupTypes.js";
+import type { StaffDirectoryService } from "../src/application/staff/staffDirectoryService.js";
+import type { StaffCareerPath, StaffMemberProfile } from "../src/application/staff/staffTypes.js";
 import { ServerRegistry, type ServerNodeView } from "../src/bridge/serverRegistry.js";
 import type { AppConfig } from "../src/config/appConfig.js";
 import { createApplicationCommandPayloads } from "../src/discord/commands/commandRegistry.js";
@@ -18,13 +20,14 @@ import { createLinkCommand, createUnlinkCommand } from "../src/discord/commands/
 import { createNetworkStatusCommand } from "../src/discord/commands/networkStatusCommand.js";
 import { createProfileCommand } from "../src/discord/commands/profileCommand.js";
 import { createSetupCommand } from "../src/discord/commands/setupCommand.js";
+import { createStaffCommand } from "../src/discord/commands/staffCommand.js";
 import { NETWORK_STATUS_REFRESH_ID, renderNetworkStatusCard } from "../src/discord/ui/networkStatusCard.js";
 
 describe("Discord command registry", () => {
   it("exports the network, setup and identity slash command payloads", () => {
     const payloads = createApplicationCommandPayloads();
 
-    expect(payloads.map((payload) => payload.name)).toEqual(["network", "setup", "link", "unlink", "profile"]);
+    expect(payloads.map((payload) => payload.name)).toEqual(["network", "setup", "link", "unlink", "profile", "staff"]);
     expect(payloads[0]).toMatchObject({
       name: "network",
       description: "Operacoes e diagnosticos da Network Alka.",
@@ -62,6 +65,9 @@ describe("Discord command registry", () => {
     });
     expect(payloads[4]).toMatchObject({
       name: "profile"
+    });
+    expect(payloads[5]).toMatchObject({
+      name: "staff"
     });
   });
 });
@@ -398,6 +404,96 @@ describe("profile command", () => {
   });
 });
 
+describe("staff command", () => {
+  it("renders staff list when the actor has staff read permission", async () => {
+    const auditService = auditServiceStub();
+    const staffDirectoryService = staffDirectoryServiceStub();
+    const command = createStaffCommand({
+      staffDirectoryService,
+      policyEngine: new PolicyEngine(policyConfig({ staffReadRoleIds: new Set(["role_staff"]) })),
+      auditService
+    });
+    const interaction = chatInputInteraction({
+      roleIds: ["role_staff"],
+      subcommand: "list"
+    });
+
+    await command.execute(interaction);
+
+    expect(interaction.deferReply).toHaveBeenCalledWith({ flags: MessageFlags.Ephemeral });
+    expect(staffDirectoryService.listStaff).toHaveBeenCalledWith({});
+    expect(interaction.editReply).toHaveBeenCalledWith(expect.objectContaining({ flags: MessageFlags.IsComponentsV2 }));
+    expect(auditService.record).toHaveBeenCalledWith(expect.objectContaining({ eventType: "STAFF_LIST_VIEWED" }));
+  });
+
+  it("renders staff profile for a Discord user", async () => {
+    const auditService = auditServiceStub();
+    const staffDirectoryService = staffDirectoryServiceStub();
+    const command = createStaffCommand({
+      staffDirectoryService,
+      policyEngine: new PolicyEngine(policyConfig({ staffReadRoleIds: new Set(["role_staff"]) })),
+      auditService
+    });
+    const interaction = chatInputInteraction({
+      roleIds: ["role_staff"],
+      subcommand: "profile",
+      userOption: {
+        id: "222"
+      }
+    });
+
+    await command.execute(interaction);
+
+    expect(staffDirectoryService.getProfileByDiscord).toHaveBeenCalledWith("222");
+    expect(interaction.editReply).toHaveBeenCalledWith(expect.objectContaining({ flags: MessageFlags.IsComponentsV2 }));
+    expect(auditService.record).toHaveBeenCalledWith(expect.objectContaining({ eventType: "STAFF_PROFILE_VIEWED" }));
+  });
+
+  it("renders a staff department career path", async () => {
+    const auditService = auditServiceStub();
+    const staffDirectoryService = staffDirectoryServiceStub();
+    const command = createStaffCommand({
+      staffDirectoryService,
+      policyEngine: new PolicyEngine(policyConfig({ staffReadRoleIds: new Set(["role_staff"]) })),
+      auditService
+    });
+    const interaction = chatInputInteraction({
+      roleIds: ["role_staff"],
+      subcommand: "department",
+      stringOptions: {
+        departamento: "moderation"
+      }
+    });
+
+    await command.execute(interaction);
+
+    expect(staffDirectoryService.getCareerPath).toHaveBeenCalledWith("moderation");
+    expect(interaction.editReply).toHaveBeenCalledWith(expect.objectContaining({ flags: MessageFlags.IsComponentsV2 }));
+    expect(auditService.record).toHaveBeenCalledWith(expect.objectContaining({ eventType: "STAFF_CAREER_PATH_VIEWED" }));
+  });
+
+  it("denies staff visibility without staff read permission", async () => {
+    const auditService = auditServiceStub();
+    const command = createStaffCommand({
+      staffDirectoryService: staffDirectoryServiceStub(),
+      policyEngine: new PolicyEngine(policyConfig({ staffReadRoleIds: new Set(["role_staff"]) })),
+      auditService
+    });
+    const interaction = chatInputInteraction({
+      roleIds: ["role_other"],
+      subcommand: "list"
+    });
+
+    await command.execute(interaction);
+
+    expect(interaction.reply).toHaveBeenCalledWith({
+      content: "Voce nao tem permissao para ver o painel de staff.",
+      flags: MessageFlags.Ephemeral
+    });
+    expect(auditService.record).toHaveBeenCalledWith(expect.objectContaining({ eventType: "POLICY_DENIED" }));
+  });
+});
+
 function serverNode(overrides: Partial<ServerNodeView>): ServerNodeView {
   return {
     serverId: "rankup-01",
@@ -422,6 +518,8 @@ function chatInputInteraction(input: {
   botPermissionNames?: string[];
   optionMode?: string;
   stringOption?: string | null;
+  stringOptions?: Record<string, string | null>;
+  userOption?: { id: string } | null;
   guildRoles?: Array<{ id: string; name: string; managed?: boolean; position?: number; editable?: boolean }>;
 }): ChatInputCommandInteraction {
   return {
@@ -457,7 +555,22 @@ function chatInputInteraction(input: {
     },
     options: {
       getSubcommand: () => input.subcommand ?? "status",
-      getString: () => (Object.prototype.hasOwnProperty.call(input, "stringOption") ? input.stringOption : (input.optionMode ?? "LEAN"))
+      getString: (name: string) => {
+        if (input.stringOptions != null && Object.prototype.hasOwnProperty.call(input.stringOptions, name)) {
+          return input.stringOptions[name];
+        }
+
+        if (Object.prototype.hasOwnProperty.call(input, "stringOption")) {
+          return input.stringOption;
+        }
+
+        if (name === "modo") {
+          return input.optionMode ?? "LEAN";
+        }
+
+        return null;
+      },
+      getUser: () => input.userOption ?? null
     },
     reply: vi.fn(),
     deferReply: vi.fn(),
@@ -514,6 +627,77 @@ function profileServiceStub(overrides: { ownProfile?: PlayerProfileSnapshot; dir
     }),
     getProfileByMinecraftUuid: vi.fn(async () => overrides.directProfile ?? playerProfile())
   } as unknown as ProfileAggregationService;
+}
+
+function staffMemberProfile(overrides: Partial<StaffMemberProfile> = {}): StaffMemberProfile {
+  return {
+    memberId: "staff_1",
+    discordUserId: "111",
+    minecraftUuid: "123e4567-e89b-12d3-a456-426614174000",
+    displayName: "MestreBR",
+    status: "ACTIVE",
+    joinedAt: new Date("2026-09-18T15:00:00.000Z"),
+    department: {
+      key: "moderation",
+      name: "Moderacao",
+      sortOrder: 80
+    },
+    position: {
+      key: "moderation.moderator",
+      departmentKey: "moderation",
+      name: "Moderador",
+      seniorityLevel: "MEMBER",
+      rankOrder: 60,
+      seniorSeat: false
+    },
+    ...overrides
+  };
+}
+
+function staffDirectoryServiceStub(): StaffDirectoryService {
+  const member = staffMemberProfile();
+  const careerPath: StaffCareerPath = {
+    department: {
+      key: "moderation",
+      name: "Moderacao",
+      sortOrder: 80
+    },
+    positions: [
+      {
+        key: "moderation.helper",
+        departmentKey: "moderation",
+        name: "Ajudante",
+        seniorityLevel: "TRAINEE",
+        rankOrder: 40,
+        seniorSeat: false
+      },
+      {
+        key: "moderation.moderator",
+        departmentKey: "moderation",
+        name: "Moderador",
+        seniorityLevel: "MEMBER",
+        rankOrder: 60,
+        seniorSeat: false
+      }
+    ]
+  };
+
+  return {
+    listStaff: vi.fn(async () => ({
+      summary: {
+        generatedAt: new Date("2026-09-18T15:00:00.000Z"),
+        activeStaff: 1,
+        departments: 7,
+        seniorSeatsTotal: 7,
+        seniorSeatsFilled: 0,
+        seniorSeatsVacant: 7
+      },
+      members: [member]
+    })),
+    getProfileByDiscord: vi.fn(async () => member),
+    getProfileByMemberId: vi.fn(async () => member),
+    getCareerPath: vi.fn(() => careerPath)
+  } as unknown as StaffDirectoryService;
 }
 
 function auditServiceStub(): AuditService {
@@ -595,6 +779,7 @@ function policyConfig(overrides: {
   networkReadRoleIds?: ReadonlySet<string>;
   setupReadRoleIds?: ReadonlySet<string>;
   setupWriteRoleIds?: ReadonlySet<string>;
+  staffReadRoleIds?: ReadonlySet<string>;
 }): AppConfig {
   return {
     app: {
@@ -631,7 +816,8 @@ function policyConfig(overrides: {
       networkReadRoleIds: overrides.networkReadRoleIds ?? new Set(),
       auditReadRoleIds: new Set(),
       setupReadRoleIds: overrides.setupReadRoleIds ?? new Set(),
-      setupWriteRoleIds: overrides.setupWriteRoleIds ?? new Set()
+      setupWriteRoleIds: overrides.setupWriteRoleIds ?? new Set(),
+      staffReadRoleIds: overrides.staffReadRoleIds ?? new Set()
     },
     identity: {
       linkCodeTtlMs: 300_000,

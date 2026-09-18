@@ -40,7 +40,8 @@ export class PolicyEngine {
       this.config.policy.networkReadRoleIds.size === 0 &&
       this.config.policy.auditReadRoleIds.size === 0 &&
       this.config.policy.setupReadRoleIds.size === 0 &&
-      this.config.policy.setupWriteRoleIds.size === 0
+      this.config.policy.setupWriteRoleIds.size === 0 &&
+      this.config.policy.staffReadRoleIds.size === 0
     );
   }
 }
@@ -55,6 +56,8 @@ function roleIdsForAction(config: AppConfig, action: AlkaPermission): ReadonlySe
       return config.policy.setupReadRoleIds;
     case "alka.setup.write":
       return config.policy.setupWriteRoleIds;
+    case "alka.staff.read":
+      return config.policy.staffReadRoleIds;
   }
 }
 

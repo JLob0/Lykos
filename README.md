@@ -50,6 +50,8 @@ Lykos publishes a signed `bridge.ping` command to `alka:commands:{serverId}`. Al
 
 `/profile` renders the caller's linked Minecraft profile through the profile aggregation layer. `/profile uuid:<minecraft-uuid>` can render a direct UUID lookup. The current provider foundation uses linked identity data and is ready for Minecraft-side rank, economy, clan, time, and stats providers.
 
+`/staff list`, `/staff profile`, and `/staff department` expose the read-only staff directory and career paths. These commands require `alka.staff.read`, configured through `POLICY_STAFF_READ_ROLE_IDS`, or an admin binding. Promotion, demotion, senior-seat mutation, Discord role changes, and LuckPerms sync remain reserved for the next staff operation block.
+
 Register commands with:
 
 ```bash

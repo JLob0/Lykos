@@ -192,7 +192,8 @@ function config(overrides: {
       networkReadRoleIds: new Set(),
       auditReadRoleIds: new Set(),
       setupReadRoleIds: overrides.setupReadRoleIds ?? new Set(),
-      setupWriteRoleIds: new Set()
+      setupWriteRoleIds: new Set(),
+      staffReadRoleIds: new Set()
     },
     identity: {
       linkCodeTtlMs: 300_000,

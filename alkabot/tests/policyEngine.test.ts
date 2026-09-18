@@ -40,6 +40,15 @@ describe("PolicyEngine", () => {
     });
   });
 
+  it("allows a staff read role for staff visibility", () => {
+    const engine = new PolicyEngine(configWithPolicy({ staffReadRoleIds: new Set(["role_staff_read"]) }));
+
+    expect(engine.evaluate(request(actor({ roleIds: ["role_staff_read"] }), ALKA_PERMISSIONS.STAFF_READ))).toMatchObject({
+      decision: "ALLOW",
+      matchedBy: "ACTION_ROLE"
+    });
+  });
+
   it("denies in production when no binding matches", () => {
     const engine = new PolicyEngine(configWithPolicy({ environment: "production", networkReadRoleIds: new Set(["other"]) }));
 
@@ -76,6 +85,7 @@ function configWithPolicy(overrides: {
   auditReadRoleIds?: ReadonlySet<string>;
   setupReadRoleIds?: ReadonlySet<string>;
   setupWriteRoleIds?: ReadonlySet<string>;
+  staffReadRoleIds?: ReadonlySet<string>;
 }): AppConfig {
   return {
     app: {
@@ -112,7 +122,8 @@ function configWithPolicy(overrides: {
       networkReadRoleIds: overrides.networkReadRoleIds ?? new Set(),
       auditReadRoleIds: overrides.auditReadRoleIds ?? new Set(),
       setupReadRoleIds: overrides.setupReadRoleIds ?? new Set(),
-      setupWriteRoleIds: overrides.setupWriteRoleIds ?? new Set()
+      setupWriteRoleIds: overrides.setupWriteRoleIds ?? new Set(),
+      staffReadRoleIds: overrides.staffReadRoleIds ?? new Set()
     },
     identity: {
       linkCodeTtlMs: 300_000,

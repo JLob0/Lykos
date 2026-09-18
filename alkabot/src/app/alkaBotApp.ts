@@ -7,6 +7,7 @@ import { ProfileAggregationService } from "../application/profile/profileAggrega
 import { IdentityProfileProvider } from "../application/profile/identityProfileProvider.js";
 import { RoleSetupService } from "../application/roles/roleSetupService.js";
 import { SetupService } from "../application/setup/setupService.js";
+import { StaffDirectoryService } from "../application/staff/staffDirectoryService.js";
 import { BridgeRedisMonitor } from "../bridge/bridgeRedisMonitor.js";
 import { BridgeCommandDispatcher } from "../bridge/commandDispatcher.js";
 import { registerServerRoutes } from "../bridge/serverRoutes.js";
@@ -23,6 +24,7 @@ import { IdentityLinkRepository } from "../infrastructure/database/identityLinkR
 import { MigrationStatusRepository } from "../infrastructure/database/migrationStatusRepository.js";
 import { RoleSetupRepository } from "../infrastructure/database/roleSetupRepository.js";
 import { ServerNodeRepository } from "../infrastructure/database/serverNodeRepository.js";
+import { StaffDirectoryRepository } from "../infrastructure/database/staffDirectoryRepository.js";
 import { RedisProvider } from "../infrastructure/redis/redisProvider.js";
 import type { AppLogger } from "../logging/logger.js";
 import { registerProfileRoutes } from "../profile/profileRoutes.js";
@@ -42,6 +44,7 @@ export class LykosApp {
   private readonly policyEngine: PolicyEngine;
   private readonly setupService: SetupService;
   private readonly roleSetupService: RoleSetupService;
+  private readonly staffDirectoryService: StaffDirectoryService;
 
   public constructor(
     private readonly config: AppConfig,
@@ -62,6 +65,7 @@ export class LykosApp {
     this.profileService = new ProfileAggregationService(this.identityLinkService, [new IdentityProfileProvider(this.identityLinkService)]);
     this.policyEngine = new PolicyEngine(config);
     this.roleSetupService = new RoleSetupService(new RoleSetupRepository(this.database));
+    this.staffDirectoryService = new StaffDirectoryService(new StaffDirectoryRepository(this.database));
     this.bridgeMonitor = new BridgeRedisMonitor(
       config,
       this.redis,
@@ -84,7 +88,8 @@ export class LykosApp {
       identityLinkService: this.identityLinkService,
       profileService: this.profileService,
       setupService: this.setupService,
-      roleSetupService: this.roleSetupService
+      roleSetupService: this.roleSetupService,
+      staffDirectoryService: this.staffDirectoryService
     });
     const interactionRouter = new InteractionRouter(commandSet.chatInputCommands, commandSet.buttonHandlers, logger);
     this.discord = new DiscordRuntime(config, logger, interactionRouter);
