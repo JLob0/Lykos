@@ -2,12 +2,14 @@ import type { RESTPostAPIChatInputApplicationCommandsJSONBody } from "discord-ap
 import type { AuditService } from "../../application/audit/auditService.js";
 import type { IdentityLinkService } from "../../application/identity/identityLinkService.js";
 import type { PolicyEngine } from "../../application/policy/policyEngine.js";
+import type { ProfileAggregationService } from "../../application/profile/profileAggregationService.js";
 import type { RoleSetupService } from "../../application/roles/roleSetupService.js";
 import type { SetupService } from "../../application/setup/setupService.js";
 import type { ServerRegistry } from "../../bridge/serverRegistry.js";
 import type { ButtonInteractionHandler, ChatInputCommandHandler } from "../interactions/slashCommand.js";
 import { createLinkCommand, createUnlinkCommand, linkCommandData, unlinkCommandData } from "./identityCommands.js";
 import { createNetworkStatusCommand, createNetworkStatusRefreshButton, networkStatusCommandData } from "./networkStatusCommand.js";
+import { createProfileCommand, profileCommandData } from "./profileCommand.js";
 import { createSetupCommand, setupCommandData } from "./setupCommand.js";
 
 export type DiscordCommandSet = {
@@ -20,6 +22,7 @@ export type DiscordCommandSetDependencies = {
   policyEngine: PolicyEngine;
   auditService: AuditService;
   identityLinkService: IdentityLinkService;
+  profileService: ProfileAggregationService;
   setupService: SetupService;
   roleSetupService: RoleSetupService;
 };
@@ -30,12 +33,13 @@ export function createDiscordCommandSet(dependencies: DiscordCommandSetDependenc
       createNetworkStatusCommand(dependencies),
       createSetupCommand(dependencies),
       createLinkCommand(dependencies),
-      createUnlinkCommand(dependencies)
+      createUnlinkCommand(dependencies),
+      createProfileCommand(dependencies)
     ],
     buttonHandlers: [createNetworkStatusRefreshButton(dependencies)]
   };
 }
 
 export function createApplicationCommandPayloads(): RESTPostAPIChatInputApplicationCommandsJSONBody[] {
-  return [networkStatusCommandData.toJSON(), setupCommandData.toJSON(), linkCommandData.toJSON(), unlinkCommandData.toJSON()];
+  return [networkStatusCommandData.toJSON(), setupCommandData.toJSON(), linkCommandData.toJSON(), unlinkCommandData.toJSON(), profileCommandData.toJSON()];
 }

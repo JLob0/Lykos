@@ -3,6 +3,8 @@ import Fastify, { type FastifyInstance } from "fastify";
 import { AuditService } from "../application/audit/auditService.js";
 import { IdentityLinkService } from "../application/identity/identityLinkService.js";
 import { PolicyEngine } from "../application/policy/policyEngine.js";
+import { ProfileAggregationService } from "../application/profile/profileAggregationService.js";
+import { IdentityProfileProvider } from "../application/profile/identityProfileProvider.js";
 import { RoleSetupService } from "../application/roles/roleSetupService.js";
 import { SetupService } from "../application/setup/setupService.js";
 import { BridgeRedisMonitor } from "../bridge/bridgeRedisMonitor.js";
@@ -23,6 +25,7 @@ import { RoleSetupRepository } from "../infrastructure/database/roleSetupReposit
 import { ServerNodeRepository } from "../infrastructure/database/serverNodeRepository.js";
 import { RedisProvider } from "../infrastructure/redis/redisProvider.js";
 import type { AppLogger } from "../logging/logger.js";
+import { registerProfileRoutes } from "../profile/profileRoutes.js";
 import type { HealthCheck } from "../shared/health.js";
 
 export class LykosApp {
@@ -35,6 +38,7 @@ export class LykosApp {
   private readonly commandDispatcher: BridgeCommandDispatcher;
   private readonly auditService: AuditService;
   private readonly identityLinkService: IdentityLinkService;
+  private readonly profileService: ProfileAggregationService;
   private readonly policyEngine: PolicyEngine;
   private readonly setupService: SetupService;
   private readonly roleSetupService: RoleSetupService;
@@ -55,6 +59,7 @@ export class LykosApp {
       codeTtlMs: config.identity.linkCodeTtlMs,
       rateLimitMs: config.identity.linkCodeRateLimitMs
     });
+    this.profileService = new ProfileAggregationService(this.identityLinkService, [new IdentityProfileProvider(this.identityLinkService)]);
     this.policyEngine = new PolicyEngine(config);
     this.roleSetupService = new RoleSetupService(new RoleSetupRepository(this.database));
     this.bridgeMonitor = new BridgeRedisMonitor(
@@ -77,6 +82,7 @@ export class LykosApp {
       policyEngine: this.policyEngine,
       auditService: this.auditService,
       identityLinkService: this.identityLinkService,
+      profileService: this.profileService,
       setupService: this.setupService,
       roleSetupService: this.roleSetupService
     });
@@ -87,6 +93,7 @@ export class LykosApp {
     registerHealthRoutes(this.server, config, readinessChecks);
     registerServerRoutes(this.server, config, this.serverRegistry, this.commandDispatcher);
     registerIdentityRoutes(this.server, config, this.identityLinkService);
+    registerProfileRoutes(this.server, config, this.profileService);
   }
 
   public async start(): Promise<void> {

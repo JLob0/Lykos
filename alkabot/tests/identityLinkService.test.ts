@@ -47,6 +47,9 @@ describe("IdentityLinkService", () => {
       minecraftUuid: MINECRAFT_UUID,
       minecraftName: "MestreBR"
     });
+    await expect(service.getLinkedIdentityByMinecraft(MINECRAFT_UUID.toUpperCase())).resolves.toMatchObject({
+      identityId: identity.identityId
+    });
     expect(store.codes[0]?.consumedByDiscordId).toBe("111");
     await expect(service.claimLinkCode({ code: created.code, discordUserId: "222", now })).rejects.toMatchObject({
       code: "CODE_ALREADY_USED"

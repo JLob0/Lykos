@@ -113,6 +113,11 @@ export class IdentityLinkService {
     return this.store.findActiveLinkByDiscord(discordUserId);
   }
 
+  public async getLinkedIdentityByMinecraft(minecraftUuid: string): Promise<LinkedIdentity | undefined> {
+    const normalized = normalizeUuid(minecraftUuid);
+    return UUID_PATTERN.test(normalized) ? this.store.findActiveLinkByMinecraft(normalized) : undefined;
+  }
+
   public async unlinkDiscord(input: UnlinkInput): Promise<LinkedIdentity> {
     const identity = await this.store.unlinkDiscord({
       discordUserId: input.discordUserId,

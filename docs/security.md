@@ -35,3 +35,10 @@ The current command bus uses an expiring `command-envelope.v1` payload inside th
 - `/link codigo:...` blocks replay, expired codes, already-linked Discord users, and already-linked Minecraft UUIDs.
 - `/link`, successful links, denied links, and `/unlink` are recorded in `audit_events` with correlation IDs.
 - The internal code creation route must use `INTERNAL_API_TOKEN` outside development/test and should only be reachable by trusted Minecraft-side infrastructure.
+
+## Profile Privacy
+
+- Profile snapshots must never include IPs, staff notes, security flags, fraud flags, private evidence, or alt-account data.
+- `/profile` replies are ephemeral in this foundation block.
+- Provider failures are represented as source status instead of leaking stack traces or raw backend errors to Discord users.
+- Internal profile routes use the same `/internal` bearer-token gate as bridge and identity routes.

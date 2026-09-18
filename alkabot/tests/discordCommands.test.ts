@@ -5,6 +5,8 @@ import type { AuditService } from "../src/application/audit/auditService.js";
 import type { IdentityLinkService } from "../src/application/identity/identityLinkService.js";
 import type { LinkedIdentity } from "../src/application/identity/identityTypes.js";
 import { PolicyEngine } from "../src/application/policy/policyEngine.js";
+import type { ProfileAggregationService } from "../src/application/profile/profileAggregationService.js";
+import { ProfileError, type PlayerProfileSnapshot } from "../src/application/profile/profileTypes.js";
 import type { RoleSetupService } from "../src/application/roles/roleSetupService.js";
 import type { RoleApplyResult, RolePlan } from "../src/application/roles/rolePlannerTypes.js";
 import type { SetupService } from "../src/application/setup/setupService.js";
@@ -14,6 +16,7 @@ import type { AppConfig } from "../src/config/appConfig.js";
 import { createApplicationCommandPayloads } from "../src/discord/commands/commandRegistry.js";
 import { createLinkCommand, createUnlinkCommand } from "../src/discord/commands/identityCommands.js";
 import { createNetworkStatusCommand } from "../src/discord/commands/networkStatusCommand.js";
+import { createProfileCommand } from "../src/discord/commands/profileCommand.js";
 import { createSetupCommand } from "../src/discord/commands/setupCommand.js";
 import { NETWORK_STATUS_REFRESH_ID, renderNetworkStatusCard } from "../src/discord/ui/networkStatusCard.js";
 
@@ -21,7 +24,7 @@ describe("Discord command registry", () => {
   it("exports the network, setup and identity slash command payloads", () => {
     const payloads = createApplicationCommandPayloads();
 
-    expect(payloads.map((payload) => payload.name)).toEqual(["network", "setup", "link", "unlink"]);
+    expect(payloads.map((payload) => payload.name)).toEqual(["network", "setup", "link", "unlink", "profile"]);
     expect(payloads[0]).toMatchObject({
       name: "network",
       description: "Operacoes e diagnosticos da Network Alka.",
@@ -56,6 +59,9 @@ describe("Discord command registry", () => {
     });
     expect(payloads[3]).toMatchObject({
       name: "unlink"
+    });
+    expect(payloads[4]).toMatchObject({
+      name: "profile"
     });
   });
 });
@@ -338,6 +344,60 @@ describe("identity link commands", () => {
   });
 });
 
+describe("profile command", () => {
+  it("renders the linked self profile and audits the view", async () => {
+    const auditService = auditServiceStub();
+    const profile = playerProfile();
+    const profileService = profileServiceStub({ ownProfile: profile });
+    const command = createProfileCommand({ profileService, auditService });
+    const interaction = chatInputInteraction({ roleIds: [], stringOption: null });
+
+    await command.execute(interaction);
+
+    expect(interaction.deferReply).toHaveBeenCalledWith({ flags: MessageFlags.Ephemeral });
+    expect(profileService.getOwnProfile).toHaveBeenCalledWith({ discordUserId: "111" });
+    expect(interaction.editReply).toHaveBeenCalledWith(expect.objectContaining({ flags: MessageFlags.IsComponentsV2 }));
+    expect(auditService.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: "PROFILE_VIEWED",
+        target: {
+          type: "PROFILE",
+          id: profile.minecraftUuid
+        }
+      })
+    );
+  });
+
+  it("renders a direct UUID profile lookup", async () => {
+    const auditService = auditServiceStub();
+    const profileService = profileServiceStub();
+    const command = createProfileCommand({ profileService, auditService });
+    const interaction = chatInputInteraction({ roleIds: [], stringOption: "123e4567-e89b-12d3-a456-426614174000" });
+
+    await command.execute(interaction);
+
+    expect(profileService.getProfileByMinecraftUuid).toHaveBeenCalledWith({
+      minecraftUuid: "123e4567-e89b-12d3-a456-426614174000",
+      requesterDiscordUserId: "111"
+    });
+    expect(interaction.editReply).toHaveBeenCalledWith(expect.objectContaining({ flags: MessageFlags.IsComponentsV2 }));
+  });
+
+  it("explains when the user has no linked Minecraft account", async () => {
+    const auditService = auditServiceStub();
+    const profileService = profileServiceStub({
+      ownError: new ProfileError("IDENTITY_NOT_LINKED", "Sua conta Discord ainda nao esta vinculada.")
+    });
+    const command = createProfileCommand({ profileService, auditService });
+    const interaction = chatInputInteraction({ roleIds: [], stringOption: null });
+
+    await command.execute(interaction);
+
+    expect(interaction.editReply).toHaveBeenCalledWith(expect.stringContaining("ainda nao vinculou"));
+    expect(auditService.record).toHaveBeenCalledWith(expect.objectContaining({ eventType: "PROFILE_VIEW_DENIED" }));
+  });
+});
+
 function serverNode(overrides: Partial<ServerNodeView>): ServerNodeView {
   return {
     serverId: "rankup-01",
@@ -416,12 +476,44 @@ function linkedIdentity(overrides: Partial<LinkedIdentity> = {}): LinkedIdentity
   };
 }
 
+function playerProfile(overrides: Partial<PlayerProfileSnapshot> = {}): PlayerProfileSnapshot {
+  return {
+    minecraftUuid: "123e4567-e89b-12d3-a456-426614174000",
+    nickname: "MestreBR",
+    rank: "Imperador",
+    coins: "393990",
+    level: "54",
+    privacy: "PUBLIC",
+    generatedAt: new Date("2026-09-18T15:00:00.000Z"),
+    sources: [
+      {
+        source: "identity",
+        state: "AVAILABLE"
+      }
+    ],
+    ...overrides
+  };
+}
+
 function identityLinkServiceStub(overrides: { linkedIdentity?: LinkedIdentity; claimResult?: LinkedIdentity; unlinkResult?: LinkedIdentity } = {}): IdentityLinkService {
   return {
     getLinkedIdentity: vi.fn(async () => overrides.linkedIdentity),
     claimLinkCode: vi.fn(async () => overrides.claimResult ?? linkedIdentity()),
     unlinkDiscord: vi.fn(async () => overrides.unlinkResult ?? linkedIdentity())
   } as unknown as IdentityLinkService;
+}
+
+function profileServiceStub(overrides: { ownProfile?: PlayerProfileSnapshot; directProfile?: PlayerProfileSnapshot; ownError?: Error } = {}): ProfileAggregationService {
+  return {
+    getOwnProfile: vi.fn(async () => {
+      if (overrides.ownError != null) {
+        throw overrides.ownError;
+      }
+
+      return overrides.ownProfile ?? playerProfile();
+    }),
+    getProfileByMinecraftUuid: vi.fn(async () => overrides.directProfile ?? playerProfile())
+  } as unknown as ProfileAggregationService;
 }
 
 function auditServiceStub(): AuditService {
