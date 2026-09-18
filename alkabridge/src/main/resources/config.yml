@@ -1,0 +1,22 @@
+server:
+  id: "rankup-01"
+  display-name: "RankUP"
+  environment: "development"
+
+transport:
+  enabled: false
+  redis:
+    url: "redis://127.0.0.1:6379"
+    command-channel-prefix: "alka:commands"
+    event-stream: "alka:events"
+    result-stream: "alka:results"
+    heartbeat-key-prefix: "alka:heartbeats"
+    capabilities-key-prefix: "alka:capabilities"
+    heartbeat-ttl-seconds: 30
+    capabilities-ttl-seconds: 300
+  security:
+    hmac-secret: ""
+
+heartbeat:
+  enabled: true
+  interval-ticks: 200

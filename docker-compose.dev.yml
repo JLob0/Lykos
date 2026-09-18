@@ -1,0 +1,35 @@
+services:
+  mysql:
+    image: mariadb:11.8
+    environment:
+      MARIADB_DATABASE: alkabot
+      MARIADB_USER: alkabot
+      MARIADB_PASSWORD: alkabot_dev_password
+      MARIADB_ROOT_PASSWORD: alkabot_dev_root_password
+    ports:
+      - "3306:3306"
+    volumes:
+      - alkabot-mysql:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:8.2-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - alkabot-redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  alkabot-mysql:
+  alkabot-redis:
+

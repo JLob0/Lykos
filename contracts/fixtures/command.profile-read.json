@@ -1,0 +1,21 @@
+{
+  "commandId": "cmd_01k5f8f7c6y6g1z0r6zh0g2m1c",
+  "correlationId": "corr_01k5f8f7c6y6g1z0r6zh0g2m1d",
+  "command": "player.profile.read",
+  "version": 1,
+  "targetServer": "rankup-01",
+  "issuedAt": "2026-09-18T15:00:00.000Z",
+  "expiresAt": "2026-09-18T15:00:30.000Z",
+  "actor": {
+    "discordUserId": "123456789012345678",
+    "staffMemberId": "staff_0001",
+    "permissionsSnapshot": [
+      "alka.player.profile.read"
+    ]
+  },
+  "data": {
+    "uuid": "00000000-0000-0000-0000-000000000001"
+  },
+  "signature": "sha256=example-signature-placeholder"
+}
+

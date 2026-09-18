@@ -1,0 +1,33 @@
+{
+  "name": "@alkacode/lykos",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "db:migrate": "node --import tsx src/scripts/migrate.ts",
+    "dev": "node --import tsx src/main.ts",
+    "start": "node dist/main.js",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "engines": {
+    "node": ">=24.17.0"
+  },
+  "dependencies": {
+    "discord.js": "14.27.0",
+    "fastify": "5.12.5",
+    "ioredis": "6.0.0",
+    "mysql2": "3.24.4",
+    "pino": "10.3.1",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "26.6.1",
+    "ajv": "8.20.0",
+    "tsx": "4.23.13",
+    "typescript": "7.0.2",
+    "vitest": "5.0.1"
+  }
+}

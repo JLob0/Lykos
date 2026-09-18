@@ -1,0 +1,14 @@
+{
+  "eventId": "evt_01k5f8f7c6y6g1z0r6zh0g2m1a",
+  "correlationId": "corr_01k5f8f7c6y6g1z0r6zh0g2m1b",
+  "event": "player.session.joined",
+  "version": 1,
+  "source": "bridge:rankup-01",
+  "timestamp": "2026-09-18T15:00:00.000Z",
+  "actor": null,
+  "data": {
+    "uuid": "00000000-0000-0000-0000-000000000001",
+    "name": "MestreBR"
+  }
+}
+

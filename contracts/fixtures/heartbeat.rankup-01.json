@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "serverId": "rankup-01",
+  "displayName": "RankUP",
+  "environment": "development",
+  "status": "ONLINE",
+  "timestamp": "2026-09-18T15:00:00.000Z",
+  "bridgeVersion": "0.1.0",
+  "paperVersion": "1.21.8",
+  "javaVersion": "21.0.11",
+  "onlinePlayers": 12,
+  "maxPlayers": 200
+}
+

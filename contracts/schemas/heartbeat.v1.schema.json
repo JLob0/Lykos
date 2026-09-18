@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://alkacode.local/contracts/heartbeat.v1.schema.json",
+  "title": "AlkaBridge Heartbeat v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "serverId", "displayName", "environment", "status", "timestamp", "bridgeVersion", "paperVersion", "javaVersion"],
+  "properties": {
+    "version": {
+      "type": "integer",
+      "const": 1
+    },
+    "serverId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "displayName": {
+      "type": "string",
+      "minLength": 1
+    },
+    "environment": {
+      "type": "string",
+      "enum": ["development", "staging", "production"]
+    },
+    "status": {
+      "type": "string",
+      "enum": ["STARTING", "ONLINE", "DRAINING", "MAINTENANCE", "STOPPING"]
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "bridgeVersion": {
+      "type": "string",
+      "minLength": 1
+    },
+    "paperVersion": {
+      "type": "string",
+      "minLength": 1
+    },
+    "javaVersion": {
+      "type": "string",
+      "minLength": 1
+    },
+    "onlinePlayers": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "maxPlayers": {
+      "type": "integer",
+      "minimum": 0
+    }
+  }
+}
+

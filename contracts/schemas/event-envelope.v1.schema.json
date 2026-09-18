@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://alkacode.local/contracts/event-envelope.v1.schema.json",
+  "title": "Alka Event Envelope v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["eventId", "correlationId", "event", "version", "source", "timestamp", "data"],
+  "properties": {
+    "eventId": {
+      "type": "string",
+      "minLength": 8
+    },
+    "correlationId": {
+      "type": "string",
+      "minLength": 8
+    },
+    "event": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(\\.[a-z0-9-]+)+$"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "source": {
+      "type": "string",
+      "minLength": 1
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "actor": {
+      "type": ["object", "null"],
+      "additionalProperties": true
+    },
+    "data": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  }
+}
+

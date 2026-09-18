@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://alkacode.local/contracts/command-result.v1.schema.json",
+  "title": "Alka Command Result v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["commandId", "correlationId", "state", "targetServer", "timestamp"],
+  "properties": {
+    "commandId": {
+      "type": "string",
+      "minLength": 8
+    },
+    "correlationId": {
+      "type": "string",
+      "minLength": 8
+    },
+    "state": {
+      "type": "string",
+      "enum": ["PENDING", "DISPATCHED", "ACKNOWLEDGED", "SUCCESS", "FAILED", "EXPIRED", "PARTIAL_FAILURE"]
+    },
+    "targetServer": {
+      "type": "string",
+      "minLength": 1
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "data": {
+      "type": ["object", "null"],
+      "additionalProperties": true
+    },
+    "error": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["code", "message"],
+      "properties": {
+        "code": {
+          "type": "string",
+          "minLength": 1
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1
+        },
+        "retryable": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}
+

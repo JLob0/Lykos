@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://alkacode.local/contracts/capabilities.v1.schema.json",
+  "title": "AlkaBridge Capabilities v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "serverId", "timestamp", "capabilities"],
+  "properties": {
+    "version": {
+      "type": "integer",
+      "const": 1
+    },
+    "serverId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "capabilities": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(\\.[a-z0-9-]+)+$"
+      }
+    }
+  }
+}
+

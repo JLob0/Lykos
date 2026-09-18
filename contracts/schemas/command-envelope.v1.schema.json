@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://alkacode.local/contracts/command-envelope.v1.schema.json",
+  "title": "Alka Command Envelope v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["commandId", "correlationId", "command", "version", "targetServer", "issuedAt", "expiresAt", "actor", "data", "signature"],
+  "properties": {
+    "commandId": {
+      "type": "string",
+      "minLength": 8
+    },
+    "correlationId": {
+      "type": "string",
+      "minLength": 8
+    },
+    "command": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(\\.[a-z0-9-]+)+$"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "targetServer": {
+      "type": "string",
+      "minLength": 1
+    },
+    "issuedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "expiresAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "actor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["discordUserId", "permissionsSnapshot"],
+      "properties": {
+        "discordUserId": {
+          "type": "string",
+          "pattern": "^[0-9]{17,22}$"
+        },
+        "staffMemberId": {
+          "type": ["string", "null"]
+        },
+        "permissionsSnapshot": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "data": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "signature": {
+      "type": "string",
+      "minLength": 32
+    }
+  }
+}
+

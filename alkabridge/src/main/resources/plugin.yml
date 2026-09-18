@@ -1,0 +1,24 @@
+name: AlkaBridge
+version: '${version}'
+main: com.alkacode.bridge.AlkaBridgePlugin
+api-version: '1.21'
+author: MestreDEV
+description: Ponte segura entre a rede Minecraft Alka e o AlkaBot Discord.
+depend: [AlkaCore]
+softdepend:
+  - AlkaEconomy
+  - AlkaTime
+  - AlkaRankUp
+  - AlkaVips
+  - AlkaClans
+  - AlkaTops
+  - AlkaChat-Plus
+commands:
+  alkabridge:
+    description: Mostra e recarrega o estado da ponte AlkaBot.
+    usage: /<command> <status|reload>
+permissions:
+  alkabridge.admin:
+    description: Acesso administrativo ao AlkaBridge.
+    default: op
+
