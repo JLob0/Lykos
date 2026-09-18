@@ -9,6 +9,7 @@
   "scripts": {
     "bot:build": "npm --workspace @alkacode/lykos run build",
     "bot:dev": "npm --workspace @alkacode/lykos run dev",
+    "bot:discord:register": "npm --workspace @alkacode/lykos run discord:register",
     "bot:test": "npm --workspace @alkacode/lykos run test",
     "bot:typecheck": "npm --workspace @alkacode/lykos run typecheck"
   },

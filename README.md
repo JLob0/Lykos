@@ -22,6 +22,7 @@ Foundation workspace for Lykos, the Alka Discord platform.
 npm install
 npm run bot:test
 npm run bot:build
+npm run bot:discord:register
 gradle -p alkabridge build
 ```
 
@@ -36,3 +37,13 @@ POST /internal/v1/servers/{serverId}/ping
 ```
 
 Lykos publishes a signed `bridge.ping` command to `alka:commands:{serverId}`. AlkaBridge validates the wrapper, target server, expiration, and replay window, then stores a signed result at `alka:command-results:{commandId}` and appends it to `alka:results`.
+
+## Discord Commands
+
+The first registered Discord command is `/network status`. It renders a Components V2 status card from the in-memory bridge server registry and includes a namespaced refresh button: `alka:network:status:refresh`.
+
+Register commands with:
+
+```bash
+npm run bot:discord:register
+```

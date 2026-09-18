@@ -7,6 +7,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "db:migrate": "node --import tsx src/scripts/migrate.ts",
+    "discord:register": "node --import tsx src/scripts/registerCommands.ts",
     "dev": "node --import tsx src/main.ts",
     "start": "node dist/main.js",
     "test": "vitest run",

@@ -2,6 +2,7 @@ import { Client, GatewayIntentBits } from "discord.js";
 import type { AppConfig } from "../config/appConfig.js";
 import type { AppLogger } from "../logging/logger.js";
 import type { HealthCheck, HealthCheckResult } from "../shared/health.js";
+import type { InteractionRouter } from "./interactions/interactionRouter.js";
 
 export class DiscordRuntime implements HealthCheck {
   public readonly name = "discord";
@@ -11,7 +12,8 @@ export class DiscordRuntime implements HealthCheck {
 
   public constructor(
     private readonly config: AppConfig,
-    private readonly logger: AppLogger
+    private readonly logger: AppLogger,
+    private readonly interactionRouter: InteractionRouter
   ) {
     this.client = new Client({
       intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers]
@@ -23,6 +25,10 @@ export class DiscordRuntime implements HealthCheck {
 
     this.client.on("error", (error) => {
       this.logger.error({ error }, "Discord client emitted an error.");
+    });
+
+    this.client.on("interactionCreate", (interaction) => {
+      void this.interactionRouter.handle(interaction);
     });
   }
 
@@ -66,4 +72,3 @@ export class DiscordRuntime implements HealthCheck {
     return { state: "ok" };
   }
 }
-

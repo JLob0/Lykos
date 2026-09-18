@@ -4,7 +4,9 @@ import { BridgeCommandDispatcher } from "../bridge/commandDispatcher.js";
 import { registerServerRoutes } from "../bridge/serverRoutes.js";
 import { ServerRegistry } from "../bridge/serverRegistry.js";
 import type { AppConfig } from "../config/appConfig.js";
+import { createDiscordCommandSet } from "../discord/commands/commandRegistry.js";
 import { DiscordRuntime } from "../discord/discordRuntime.js";
+import { InteractionRouter } from "../discord/interactions/interactionRouter.js";
 import { registerHealthRoutes } from "../health/healthRoutes.js";
 import { DatabaseProvider } from "../infrastructure/database/databaseProvider.js";
 import { ServerNodeRepository } from "../infrastructure/database/serverNodeRepository.js";
@@ -28,10 +30,12 @@ export class LykosApp {
       logger: false
     });
 
-    this.discord = new DiscordRuntime(config, logger);
     this.database = new DatabaseProvider(config, logger);
     this.redis = new RedisProvider(config, logger);
     this.serverRegistry = new ServerRegistry(config.bridge.heartbeatStaleMs);
+    const commandSet = createDiscordCommandSet(this.serverRegistry);
+    const interactionRouter = new InteractionRouter(commandSet.chatInputCommands, commandSet.buttonHandlers, logger);
+    this.discord = new DiscordRuntime(config, logger, interactionRouter);
     this.bridgeMonitor = new BridgeRedisMonitor(
       config,
       this.redis,
