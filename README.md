@@ -42,6 +42,8 @@ Lykos publishes a signed `bridge.ping` command to `alka:commands:{serverId}`. Al
 
 The first registered Discord command is `/network status`. It renders a Components V2 status card from the in-memory bridge server registry and includes a namespaced refresh button: `alka:network:status:refresh`.
 
+`/network status` is guarded by the policy engine and writes immutable audit rows to `audit_events`. In production, configure at least one of `POLICY_ADMIN_DISCORD_IDS`, `POLICY_ADMIN_ROLE_IDS`, or `POLICY_NETWORK_READ_ROLE_IDS`; development/test keep a fallback allow mode only while no policy bindings exist.
+
 Register commands with:
 
 ```bash

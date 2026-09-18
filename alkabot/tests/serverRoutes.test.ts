@@ -34,7 +34,13 @@ const config: AppConfig = {
     commandTtlMs: 30_000,
     commandResultWaitMs: 3_000
   },
-  internalApi: {}
+  internalApi: {},
+  policy: {
+    adminDiscordUserIds: new Set(),
+    adminRoleIds: new Set(),
+    networkReadRoleIds: new Set(),
+    auditReadRoleIds: new Set()
+  }
 };
 
 describe("server routes", () => {

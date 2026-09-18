@@ -36,7 +36,13 @@ const config: AppConfig = {
     commandTtlMs: 30_000,
     commandResultWaitMs: 250
   },
-  internalApi: {}
+  internalApi: {},
+  policy: {
+    adminDiscordUserIds: new Set(),
+    adminRoleIds: new Set(),
+    networkReadRoleIds: new Set(),
+    auditReadRoleIds: new Set()
+  }
 };
 
 describe("BridgeCommandDispatcher", () => {

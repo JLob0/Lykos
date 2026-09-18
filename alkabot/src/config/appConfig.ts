@@ -19,6 +19,12 @@ const optionalSecretSchema = z
   .transform((value) => (value.length === 0 ? undefined : value))
   .optional();
 
+const csvSchema = z
+  .string()
+  .trim()
+  .optional()
+  .transform((value) => parseCsvSet(value));
+
 const envSchema = z.object({
   APP_NAME: z.string().trim().min(1).default("Lykos"),
   APP_VERSION: z.string().trim().min(1).default("0.1.0"),
@@ -38,6 +44,10 @@ const envSchema = z.object({
   BRIDGE_HEARTBEAT_STALE_MS: durationMsSchema.default(30_000),
   BRIDGE_COMMAND_TTL_MS: durationMsSchema.default(30_000),
   BRIDGE_COMMAND_RESULT_WAIT_MS: durationMsSchema.default(3_000),
+  POLICY_ADMIN_DISCORD_IDS: csvSchema,
+  POLICY_ADMIN_ROLE_IDS: csvSchema,
+  POLICY_NETWORK_READ_ROLE_IDS: csvSchema,
+  POLICY_AUDIT_READ_ROLE_IDS: csvSchema,
   INTERNAL_API_TOKEN: optionalSecretSchema
 });
 
@@ -77,6 +87,12 @@ export type AppConfig = {
   };
   internalApi: {
     token?: string;
+  };
+  policy: {
+    adminDiscordUserIds: ReadonlySet<string>;
+    adminRoleIds: ReadonlySet<string>;
+    networkReadRoleIds: ReadonlySet<string>;
+    auditReadRoleIds: ReadonlySet<string>;
   };
 };
 
@@ -136,7 +152,13 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
       url: parsed.REDIS_URL
     },
     bridge,
-    internalApi
+    internalApi,
+    policy: {
+      adminDiscordUserIds: parsed.POLICY_ADMIN_DISCORD_IDS,
+      adminRoleIds: parsed.POLICY_ADMIN_ROLE_IDS,
+      networkReadRoleIds: parsed.POLICY_NETWORK_READ_ROLE_IDS,
+      auditReadRoleIds: parsed.POLICY_AUDIT_READ_ROLE_IDS
+    }
   };
 }
 
@@ -147,4 +169,17 @@ function normalizeOptional(value: string | undefined): string | undefined {
 
   const trimmed = value.trim();
   return trimmed.length === 0 ? undefined : trimmed;
+}
+
+function parseCsvSet(value: string | undefined): ReadonlySet<string> {
+  if (value == null || value.trim().length === 0) {
+    return new Set();
+  }
+
+  return new Set(
+    value
+      .split(",")
+      .map((entry) => entry.trim())
+      .filter((entry) => entry.length > 0)
+  );
 }

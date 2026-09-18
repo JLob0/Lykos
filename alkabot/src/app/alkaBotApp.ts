@@ -1,4 +1,6 @@
 import Fastify, { type FastifyInstance } from "fastify";
+import { AuditService } from "../application/audit/auditService.js";
+import { PolicyEngine } from "../application/policy/policyEngine.js";
 import { BridgeRedisMonitor } from "../bridge/bridgeRedisMonitor.js";
 import { BridgeCommandDispatcher } from "../bridge/commandDispatcher.js";
 import { registerServerRoutes } from "../bridge/serverRoutes.js";
@@ -8,6 +10,7 @@ import { createDiscordCommandSet } from "../discord/commands/commandRegistry.js"
 import { DiscordRuntime } from "../discord/discordRuntime.js";
 import { InteractionRouter } from "../discord/interactions/interactionRouter.js";
 import { registerHealthRoutes } from "../health/healthRoutes.js";
+import { AuditEventRepository } from "../infrastructure/database/auditEventRepository.js";
 import { DatabaseProvider } from "../infrastructure/database/databaseProvider.js";
 import { ServerNodeRepository } from "../infrastructure/database/serverNodeRepository.js";
 import { RedisProvider } from "../infrastructure/redis/redisProvider.js";
@@ -21,6 +24,8 @@ export class LykosApp {
   private readonly serverRegistry: ServerRegistry;
   private readonly bridgeMonitor: BridgeRedisMonitor;
   private readonly commandDispatcher: BridgeCommandDispatcher;
+  private readonly auditService: AuditService;
+  private readonly policyEngine: PolicyEngine;
 
   public constructor(
     private readonly config: AppConfig,
@@ -33,7 +38,13 @@ export class LykosApp {
     this.database = new DatabaseProvider(config, logger);
     this.redis = new RedisProvider(config, logger);
     this.serverRegistry = new ServerRegistry(config.bridge.heartbeatStaleMs);
-    const commandSet = createDiscordCommandSet(this.serverRegistry);
+    this.auditService = new AuditService(new AuditEventRepository(this.database), logger);
+    this.policyEngine = new PolicyEngine(config);
+    const commandSet = createDiscordCommandSet({
+      registry: this.serverRegistry,
+      policyEngine: this.policyEngine,
+      auditService: this.auditService
+    });
     const interactionRouter = new InteractionRouter(commandSet.chatInputCommands, commandSet.buttonHandlers, logger);
     this.discord = new DiscordRuntime(config, logger, interactionRouter);
     this.bridgeMonitor = new BridgeRedisMonitor(
