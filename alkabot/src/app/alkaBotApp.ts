@@ -1,6 +1,8 @@
+import { join } from "node:path";
 import Fastify, { type FastifyInstance } from "fastify";
 import { AuditService } from "../application/audit/auditService.js";
 import { PolicyEngine } from "../application/policy/policyEngine.js";
+import { SetupService } from "../application/setup/setupService.js";
 import { BridgeRedisMonitor } from "../bridge/bridgeRedisMonitor.js";
 import { BridgeCommandDispatcher } from "../bridge/commandDispatcher.js";
 import { registerServerRoutes } from "../bridge/serverRoutes.js";
@@ -12,9 +14,11 @@ import { InteractionRouter } from "../discord/interactions/interactionRouter.js"
 import { registerHealthRoutes } from "../health/healthRoutes.js";
 import { AuditEventRepository } from "../infrastructure/database/auditEventRepository.js";
 import { DatabaseProvider } from "../infrastructure/database/databaseProvider.js";
+import { MigrationStatusRepository } from "../infrastructure/database/migrationStatusRepository.js";
 import { ServerNodeRepository } from "../infrastructure/database/serverNodeRepository.js";
 import { RedisProvider } from "../infrastructure/redis/redisProvider.js";
 import type { AppLogger } from "../logging/logger.js";
+import type { HealthCheck } from "../shared/health.js";
 
 export class LykosApp {
   private readonly server: FastifyInstance;
@@ -26,6 +30,7 @@ export class LykosApp {
   private readonly commandDispatcher: BridgeCommandDispatcher;
   private readonly auditService: AuditService;
   private readonly policyEngine: PolicyEngine;
+  private readonly setupService: SetupService;
 
   public constructor(
     private readonly config: AppConfig,
@@ -40,13 +45,6 @@ export class LykosApp {
     this.serverRegistry = new ServerRegistry(config.bridge.heartbeatStaleMs);
     this.auditService = new AuditService(new AuditEventRepository(this.database), logger);
     this.policyEngine = new PolicyEngine(config);
-    const commandSet = createDiscordCommandSet({
-      registry: this.serverRegistry,
-      policyEngine: this.policyEngine,
-      auditService: this.auditService
-    });
-    const interactionRouter = new InteractionRouter(commandSet.chatInputCommands, commandSet.buttonHandlers, logger);
-    this.discord = new DiscordRuntime(config, logger, interactionRouter);
     this.bridgeMonitor = new BridgeRedisMonitor(
       config,
       this.redis,
@@ -55,8 +53,24 @@ export class LykosApp {
       logger
     );
     this.commandDispatcher = new BridgeCommandDispatcher(config, this.redis, logger);
+    this.setupService = new SetupService({
+      config,
+      healthChecks: [this.database, this.redis, this.bridgeMonitor],
+      serverRegistry: this.serverRegistry,
+      migrationStatusReader: new MigrationStatusRepository(this.database),
+      migrationsDirectory: join(process.cwd(), "migrations")
+    });
+    const commandSet = createDiscordCommandSet({
+      registry: this.serverRegistry,
+      policyEngine: this.policyEngine,
+      auditService: this.auditService,
+      setupService: this.setupService
+    });
+    const interactionRouter = new InteractionRouter(commandSet.chatInputCommands, commandSet.buttonHandlers, logger);
+    this.discord = new DiscordRuntime(config, logger, interactionRouter);
 
-    registerHealthRoutes(this.server, config, [this.discord, this.database, this.redis, this.bridgeMonitor]);
+    const readinessChecks: HealthCheck[] = [this.discord, this.database, this.redis, this.bridgeMonitor];
+    registerHealthRoutes(this.server, config, readinessChecks);
     registerServerRoutes(this.server, config, this.serverRegistry, this.commandDispatcher);
   }
 

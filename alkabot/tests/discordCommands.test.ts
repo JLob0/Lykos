@@ -3,25 +3,40 @@ import type { ChatInputCommandInteraction } from "discord.js";
 import { describe, expect, it, vi } from "vitest";
 import type { AuditService } from "../src/application/audit/auditService.js";
 import { PolicyEngine } from "../src/application/policy/policyEngine.js";
+import type { SetupService } from "../src/application/setup/setupService.js";
+import type { SetupDoctorReport } from "../src/application/setup/setupTypes.js";
 import { ServerRegistry, type ServerNodeView } from "../src/bridge/serverRegistry.js";
 import type { AppConfig } from "../src/config/appConfig.js";
 import { createApplicationCommandPayloads } from "../src/discord/commands/commandRegistry.js";
 import { createNetworkStatusCommand } from "../src/discord/commands/networkStatusCommand.js";
+import { createSetupCommand } from "../src/discord/commands/setupCommand.js";
 import { NETWORK_STATUS_REFRESH_ID, renderNetworkStatusCard } from "../src/discord/ui/networkStatusCard.js";
 
 describe("Discord command registry", () => {
-  it("exports the network status slash command payload", () => {
-    expect(createApplicationCommandPayloads()).toMatchObject([
-      {
-        name: "network",
-        description: "Operacoes e diagnosticos da Network Alka.",
-        options: [
-          {
-            name: "status"
-          }
-        ]
-      }
-    ]);
+  it("exports the network and setup slash command payloads", () => {
+    const payloads = createApplicationCommandPayloads();
+
+    expect(payloads.map((payload) => payload.name)).toEqual(["network", "setup"]);
+    expect(payloads[0]).toMatchObject({
+      name: "network",
+      description: "Operacoes e diagnosticos da Network Alka.",
+      options: [
+        {
+          name: "status"
+        }
+      ]
+    });
+    expect(payloads[1]).toMatchObject({
+      name: "setup",
+      options: expect.arrayContaining([
+        expect.objectContaining({
+          name: "doctor"
+        }),
+        expect.objectContaining({
+          name: "plan"
+        })
+      ])
+    });
   });
 });
 
@@ -129,6 +144,45 @@ describe("network status command policy", () => {
   });
 });
 
+describe("setup command policy", () => {
+  it("runs setup doctor and audits when the actor has setup read permission", async () => {
+    const auditService = auditServiceStub();
+    const setupService = setupServiceStub();
+    const command = createSetupCommand({
+      setupService,
+      policyEngine: new PolicyEngine(policyConfig({ setupReadRoleIds: new Set(["role_setup"]) })),
+      auditService
+    });
+    const interaction = chatInputInteraction({
+      roleIds: ["role_setup"],
+      subcommand: "doctor",
+      botPermissionNames: ["ManageRoles", "ManageChannels"]
+    });
+
+    await command.execute(interaction);
+
+    expect(interaction.deferReply).toHaveBeenCalledWith({
+      flags: MessageFlags.Ephemeral
+    });
+    expect(setupService.runDoctor).toHaveBeenCalledWith(
+      expect.objectContaining({
+        guildId: "guild_test",
+        botPermissionNames: ["ManageRoles", "ManageChannels"]
+      })
+    );
+    expect(interaction.editReply).toHaveBeenCalledWith(expect.objectContaining({ flags: MessageFlags.IsComponentsV2 }));
+    expect(auditService.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: "SETUP_DOCTOR_VIEWED",
+        target: {
+          type: "SETUP",
+          id: "doctor"
+        }
+      })
+    );
+  });
+});
+
 function serverNode(overrides: Partial<ServerNodeView>): ServerNodeView {
   return {
     serverId: "rankup-01",
@@ -147,7 +201,7 @@ function serverNode(overrides: Partial<ServerNodeView>): ServerNodeView {
   };
 }
 
-function chatInputInteraction(input: { roleIds: string[] }): ChatInputCommandInteraction {
+function chatInputInteraction(input: { roleIds: string[]; subcommand?: string; botPermissionNames?: string[] }): ChatInputCommandInteraction {
   return {
     id: "interaction_test",
     user: {
@@ -160,10 +214,15 @@ function chatInputInteraction(input: { roleIds: string[] }): ChatInputCommandInt
     member: {
       roles: input.roleIds
     },
-    options: {
-      getSubcommand: () => "status"
+    appPermissions: {
+      toArray: () => input.botPermissionNames ?? []
     },
-    reply: vi.fn()
+    options: {
+      getSubcommand: () => input.subcommand ?? "status"
+    },
+    reply: vi.fn(),
+    deferReply: vi.fn(),
+    editReply: vi.fn()
   } as unknown as ChatInputCommandInteraction;
 }
 
@@ -178,7 +237,27 @@ function auditServiceStub(): AuditService {
   } as unknown as AuditService;
 }
 
-function policyConfig(overrides: { networkReadRoleIds?: ReadonlySet<string> }): AppConfig {
+function setupServiceStub(): SetupService {
+  const doctorReport: SetupDoctorReport = {
+    generatedAt: new Date("2026-09-18T15:00:00.000Z"),
+    overall: "READY",
+    checks: [
+      {
+        id: "discord.config",
+        label: "Discord guild",
+        state: "PASS",
+        detail: "Guild pronta."
+      }
+    ]
+  };
+
+  return {
+    runDoctor: vi.fn(async () => doctorReport),
+    createPlan: vi.fn()
+  } as unknown as SetupService;
+}
+
+function policyConfig(overrides: { networkReadRoleIds?: ReadonlySet<string>; setupReadRoleIds?: ReadonlySet<string> }): AppConfig {
   return {
     app: {
       name: "Lykos",
@@ -212,7 +291,8 @@ function policyConfig(overrides: { networkReadRoleIds?: ReadonlySet<string> }): 
       adminDiscordUserIds: new Set(),
       adminRoleIds: new Set(),
       networkReadRoleIds: overrides.networkReadRoleIds ?? new Set(),
-      auditReadRoleIds: new Set()
+      auditReadRoleIds: new Set(),
+      setupReadRoleIds: overrides.setupReadRoleIds ?? new Set()
     }
   };
 }

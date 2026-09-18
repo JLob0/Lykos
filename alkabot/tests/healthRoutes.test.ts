@@ -37,7 +37,8 @@ const config: AppConfig = {
     adminDiscordUserIds: new Set(),
     adminRoleIds: new Set(),
     networkReadRoleIds: new Set(),
-    auditReadRoleIds: new Set()
+    auditReadRoleIds: new Set(),
+    setupReadRoleIds: new Set()
   }
 };
 

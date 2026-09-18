@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { PolicyEngine } from "../src/application/policy/policyEngine.js";
-import { ALKA_PERMISSIONS, type PolicyActor } from "../src/application/policy/policyTypes.js";
+import { ALKA_PERMISSIONS, type AlkaPermission, type PolicyActor } from "../src/application/policy/policyTypes.js";
 import type { AppConfig } from "../src/config/appConfig.js";
 
 describe("PolicyEngine", () => {
@@ -22,6 +22,15 @@ describe("PolicyEngine", () => {
     });
   });
 
+  it("allows a setup read role for setup diagnostics", () => {
+    const engine = new PolicyEngine(configWithPolicy({ setupReadRoleIds: new Set(["role_setup"]) }));
+
+    expect(engine.evaluate(request(actor({ roleIds: ["role_setup"] }), ALKA_PERMISSIONS.SETUP_READ))).toMatchObject({
+      decision: "ALLOW",
+      matchedBy: "ACTION_ROLE"
+    });
+  });
+
   it("denies in production when no binding matches", () => {
     const engine = new PolicyEngine(configWithPolicy({ environment: "production", networkReadRoleIds: new Set(["other"]) }));
 
@@ -32,9 +41,9 @@ describe("PolicyEngine", () => {
   });
 });
 
-function request(actorInput: PolicyActor) {
+function request(actorInput: PolicyActor, action: AlkaPermission = ALKA_PERMISSIONS.NETWORK_READ) {
   return {
-    action: ALKA_PERMISSIONS.NETWORK_READ,
+    action,
     actor: actorInput,
     source: "test"
   };
@@ -56,6 +65,7 @@ function configWithPolicy(overrides: {
   adminRoleIds?: ReadonlySet<string>;
   networkReadRoleIds?: ReadonlySet<string>;
   auditReadRoleIds?: ReadonlySet<string>;
+  setupReadRoleIds?: ReadonlySet<string>;
 }): AppConfig {
   return {
     app: {
@@ -90,7 +100,8 @@ function configWithPolicy(overrides: {
       adminDiscordUserIds: overrides.adminDiscordUserIds ?? new Set(),
       adminRoleIds: overrides.adminRoleIds ?? new Set(),
       networkReadRoleIds: overrides.networkReadRoleIds ?? new Set(),
-      auditReadRoleIds: overrides.auditReadRoleIds ?? new Set()
+      auditReadRoleIds: overrides.auditReadRoleIds ?? new Set(),
+      setupReadRoleIds: overrides.setupReadRoleIds ?? new Set()
     }
   };
 }

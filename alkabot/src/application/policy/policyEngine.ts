@@ -38,7 +38,8 @@ export class PolicyEngine {
       this.config.policy.adminDiscordUserIds.size === 0 &&
       this.config.policy.adminRoleIds.size === 0 &&
       this.config.policy.networkReadRoleIds.size === 0 &&
-      this.config.policy.auditReadRoleIds.size === 0
+      this.config.policy.auditReadRoleIds.size === 0 &&
+      this.config.policy.setupReadRoleIds.size === 0
     );
   }
 }
@@ -49,6 +50,8 @@ function roleIdsForAction(config: AppConfig, action: AlkaPermission): ReadonlySe
       return config.policy.networkReadRoleIds;
     case "alka.audit.read":
       return config.policy.auditReadRoleIds;
+    case "alka.setup.read":
+      return config.policy.setupReadRoleIds;
   }
 }
 

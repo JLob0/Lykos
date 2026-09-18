@@ -14,6 +14,7 @@ describe("loadConfig", () => {
     expect(config.bridge.commandResultWaitMs).toBe(3_000);
     expect(config.policy.adminDiscordUserIds.size).toBe(0);
     expect(config.policy.networkReadRoleIds.size).toBe(0);
+    expect(config.policy.setupReadRoleIds.size).toBe(0);
   });
 
   it("normalizes empty secrets to undefined", () => {
@@ -29,10 +30,12 @@ describe("loadConfig", () => {
   it("parses comma-separated policy bindings", () => {
     const config = loadConfig({
       POLICY_ADMIN_DISCORD_IDS: "111, 222",
-      POLICY_NETWORK_READ_ROLE_IDS: "333"
+      POLICY_NETWORK_READ_ROLE_IDS: "333",
+      POLICY_SETUP_READ_ROLE_IDS: "444, 555"
     });
 
     expect([...config.policy.adminDiscordUserIds]).toEqual(["111", "222"]);
     expect([...config.policy.networkReadRoleIds]).toEqual(["333"]);
+    expect([...config.policy.setupReadRoleIds]).toEqual(["444", "555"]);
   });
 });

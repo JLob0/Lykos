@@ -48,6 +48,7 @@ const envSchema = z.object({
   POLICY_ADMIN_ROLE_IDS: csvSchema,
   POLICY_NETWORK_READ_ROLE_IDS: csvSchema,
   POLICY_AUDIT_READ_ROLE_IDS: csvSchema,
+  POLICY_SETUP_READ_ROLE_IDS: csvSchema,
   INTERNAL_API_TOKEN: optionalSecretSchema
 });
 
@@ -93,6 +94,7 @@ export type AppConfig = {
     adminRoleIds: ReadonlySet<string>;
     networkReadRoleIds: ReadonlySet<string>;
     auditReadRoleIds: ReadonlySet<string>;
+    setupReadRoleIds: ReadonlySet<string>;
   };
 };
 
@@ -157,7 +159,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
       adminDiscordUserIds: parsed.POLICY_ADMIN_DISCORD_IDS,
       adminRoleIds: parsed.POLICY_ADMIN_ROLE_IDS,
       networkReadRoleIds: parsed.POLICY_NETWORK_READ_ROLE_IDS,
-      auditReadRoleIds: parsed.POLICY_AUDIT_READ_ROLE_IDS
+      auditReadRoleIds: parsed.POLICY_AUDIT_READ_ROLE_IDS,
+      setupReadRoleIds: parsed.POLICY_SETUP_READ_ROLE_IDS
     }
   };
 }

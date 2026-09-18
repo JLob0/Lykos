@@ -24,3 +24,4 @@ The current command bus uses an expiring `command-envelope.v1` payload inside th
 - Production authorization is deny-by-default unless the actor matches a configured admin user, admin role, or action role.
 - `/network status` records successful views, button refreshes, and denied attempts in `audit_events`.
 - Audit metadata is structured JSON so future dashboards can filter by event type, actor, target, source, severity, and correlation ID.
+- `/setup doctor` and `/setup plan` require `alka.setup.read` and are audited. They are read-only and must not create roles, channels, permission overwrites, or database rows beyond audit records.

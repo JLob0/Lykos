@@ -44,6 +44,8 @@ The first registered Discord command is `/network status`. It renders a Componen
 
 `/network status` is guarded by the policy engine and writes immutable audit rows to `audit_events`. In production, configure at least one of `POLICY_ADMIN_DISCORD_IDS`, `POLICY_ADMIN_ROLE_IDS`, or `POLICY_NETWORK_READ_ROLE_IDS`; development/test keep a fallback allow mode only while no policy bindings exist.
 
+`/setup doctor` and `/setup plan` provide the first safe setup workflow. They validate readiness and render a dry-run plan only; no Discord roles, channels, permissions, or database resources are applied by this block. In production, grant setup visibility through admin policy or `POLICY_SETUP_READ_ROLE_IDS`.
+
 Register commands with:
 
 ```bash
