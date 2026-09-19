@@ -6,7 +6,8 @@ import type {
   StaffOperationKind,
   StaffOperationResult,
   StaffOperationsStore,
-  StaffPosition
+  StaffPosition,
+  StaffSyncPayload
 } from "./staffTypes.js";
 import { StaffError } from "./staffTypes.js";
 import { enrichStaffRecord } from "./staffDirectoryService.js";
@@ -72,9 +73,13 @@ export class StaffOperationsService {
     }
 
     const appliedAt = new Date();
+    const assignmentId = `staff_assignment_${randomUUID()}`;
+    const historyId = `staff_history_${randomUUID()}`;
+    const syncJobId = `staff_sync_${randomUUID()}`;
     const mutation = await this.store.applyAssignmentChange({
-      assignmentId: `staff_assignment_${randomUUID()}`,
-      historyId: `staff_history_${randomUUID()}`,
+      assignmentId,
+      historyId,
+      syncJobId,
       staffMemberId: member.memberId,
       actorDiscordUserId: input.actorDiscordUserId,
       eventType: kind === "PROMOTE" ? "STAFF_PROMOTED" : "STAFF_DEMOTED",
@@ -87,7 +92,8 @@ export class StaffOperationsService {
       metadata: {
         operation: kind,
         pendingExternalSync: true
-      }
+      },
+      syncPayload: createSyncPayload(syncJobId, assignmentId, historyId, member, targetPosition)
     });
 
     return {
@@ -96,6 +102,7 @@ export class StaffOperationsService {
       requiresConfirmation: false,
       assignmentId: mutation.assignmentId,
       historyId: mutation.historyId,
+      syncJobId: mutation.syncJobId,
       appliedAt: mutation.appliedAt
     };
   }
@@ -120,6 +127,82 @@ export class StaffOperationsService {
           profile.position?.seniorSeat === true
       );
   }
+}
+
+function createSyncPayload(
+  syncJobId: string,
+  assignmentId: string,
+  historyId: string,
+  member: StaffMemberProfile,
+  targetPosition: StaffPosition
+): StaffSyncPayload {
+  return {
+    version: 1,
+    syncJobId,
+    assignmentId,
+    historyId,
+    staffMemberId: member.memberId,
+    ...(member.discordUserId == null ? {} : { discordUserId: member.discordUserId }),
+    ...(member.minecraftUuid == null ? {} : { minecraftUuid: member.minecraftUuid }),
+    displayName: member.displayName,
+    target: {
+      departmentKey: targetPosition.departmentKey,
+      positionKey: targetPosition.key,
+      seniorityLevel: targetPosition.seniorityLevel,
+      seniorSeat: targetPosition.seniorSeat
+    },
+    projection: {
+      discordRoleKeys: discordRoleKeysFor(targetPosition),
+      minecraftPermissionGroups: minecraftPermissionGroupsFor(targetPosition)
+    }
+  };
+}
+
+function discordRoleKeysFor(position: StaffPosition): string[] {
+  const keys = new Set<string>(["alka.staff"]);
+  const departmentRole = departmentRoleKey(position.departmentKey);
+  if (departmentRole != null) {
+    keys.add(departmentRole);
+  }
+
+  if (position.seniorSeat || position.seniorityLevel === "SENIOR") {
+    keys.add("alka.senior.staff");
+  }
+
+  if (position.seniorityLevel === "TRAINEE") {
+    keys.add("alka.trainee.staff");
+  }
+
+  if (["LEAD", "MANAGER", "DIRECTOR", "OWNER"].includes(position.seniorityLevel)) {
+    keys.add("alka.leadership");
+  }
+
+  return [...keys].sort((left, right) => left.localeCompare(right));
+}
+
+function departmentRoleKey(departmentKey: string): string | undefined {
+  switch (departmentKey) {
+    case "community":
+      return "alka.department.community";
+    case "technical":
+      return "alka.department.technical";
+    case "creative":
+      return "alka.department.creative";
+    case "management":
+      return "alka.management";
+    case "moderation":
+      return "alka.moderation";
+    case "support":
+      return "alka.support";
+    case "direction":
+      return "alka.leadership";
+    default:
+      return undefined;
+  }
+}
+
+function minecraftPermissionGroupsFor(position: StaffPosition): string[] {
+  return [`staff.${position.key.replaceAll(".", "-")}`];
 }
 
 function baseResult(kind: StaffOperationKind, member: StaffMemberProfile, targetPosition: StaffPosition | undefined, reason: string): StaffOperationResult {

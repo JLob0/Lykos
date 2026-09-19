@@ -44,7 +44,8 @@ const config: AppConfig = {
     setupWriteRoleIds: new Set(),
     staffReadRoleIds: new Set(),
     staffPromoteRoleIds: new Set(),
-    staffDemoteRoleIds: new Set()
+    staffDemoteRoleIds: new Set(),
+    staffSyncRoleIds: new Set()
   },
   identity: {
     linkCodeTtlMs: 300_000,
@@ -106,6 +107,9 @@ describe("server routes", () => {
     const command = bridgePingCommand("rankup-01");
     const dispatcher: BridgeCommandDispatcherPort = {
       async dispatchBridgePing() {
+        return command;
+      },
+      async dispatchStaffSync() {
         return command;
       },
       async waitForResult(commandId) {

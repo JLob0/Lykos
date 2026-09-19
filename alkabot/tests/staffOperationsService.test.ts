@@ -103,7 +103,20 @@ describe("StaffOperationsService", () => {
         metadata: {
           operation: "DEMOTE",
           pendingExternalSync: true
-        }
+        },
+        syncJobId: expect.stringMatching(/^staff_sync_/u),
+        syncPayload: expect.objectContaining({
+          version: 1,
+          staffMemberId: "staff_1",
+          target: expect.objectContaining({
+            departmentKey: "support",
+            positionKey: "support.agent"
+          }),
+          projection: expect.objectContaining({
+            discordRoleKeys: expect.arrayContaining(["alka.staff", "alka.support"]),
+            minecraftPermissionGroups: expect.arrayContaining(["staff.support-agent"])
+          })
+        })
       })
     );
   });
@@ -139,6 +152,7 @@ function operationsStore(records: StaffMemberRecord[]): StaffOperationsStore {
     applyAssignmentChange: vi.fn(async (input: StaffAssignmentChangeInput) => ({
       assignmentId: input.assignmentId,
       historyId: input.historyId,
+      syncJobId: input.syncJobId,
       appliedAt: input.appliedAt
     }))
   };

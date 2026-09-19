@@ -1,0 +1,41 @@
+{
+  "commandId": "cmd_01k5staffsync000000000001",
+  "correlationId": "corr_01k5staffsync0000000001",
+  "command": "staff.sync",
+  "version": 1,
+  "targetServer": "rankup-01",
+  "issuedAt": "2026-09-18T15:00:00.000Z",
+  "expiresAt": "2026-09-18T15:00:30.000Z",
+  "actor": {
+    "discordUserId": "123456789012345678",
+    "staffMemberId": "staff_0001",
+    "permissionsSnapshot": [
+      "alka.staff.sync"
+    ]
+  },
+  "data": {
+    "version": 1,
+    "syncJobId": "staff_sync_01k5sync000000000001",
+    "staffMemberId": "staff_0001",
+    "assignmentId": "staff_assignment_01k5sync000000001",
+    "historyId": "staff_history_01k5sync000000001",
+    "discordUserId": "123456789012345678",
+    "minecraftUuid": "00000000-0000-0000-0000-000000000001",
+    "displayName": "MestreBR",
+    "target": {
+      "departmentKey": "moderation",
+      "positionKey": "moderation.senior",
+      "seniorityLevel": "SENIOR",
+      "seniorSeat": true
+    },
+    "projection": {
+      "discordRoleKeys": [
+        "alka.senior.staff",
+        "alka.staff"
+      ],
+      "minecraftPermissionGroups": [
+        "staff.moderation-senior"
+      ]
+    }
+  }
+}

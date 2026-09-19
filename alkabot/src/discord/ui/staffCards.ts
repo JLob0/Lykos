@@ -1,4 +1,10 @@
-import type { StaffCareerPath, StaffDirectorySummary, StaffMemberProfile, StaffOperationResult } from "../../application/staff/staffTypes.js";
+import type {
+  StaffCareerPath,
+  StaffDirectorySummary,
+  StaffMemberProfile,
+  StaffOperationResult,
+  StaffSyncRunResult
+} from "../../application/staff/staffTypes.js";
 import { alkaContainer, componentsV2Message, separator, textDisplay, type ComponentsV2Message } from "./componentsV2.js";
 
 export function renderStaffListCard(input: { summary: StaffDirectorySummary; members: StaffMemberProfile[] }): ComponentsV2Message {
@@ -76,6 +82,25 @@ export function renderStaffOperationCard(result: StaffOperationResult): Componen
   ]);
 }
 
+export function renderStaffSyncCard(result: StaffSyncRunResult): ComponentsV2Message {
+  return componentsV2Message([
+    alkaContainer([
+      textDisplay(
+        [
+          "## ALKASTUDIO - STAFF SYNC",
+          `**Servidor:** ${result.targetServerId}`,
+          `**Pendencias lidas:** ${result.processed}/${result.requested}`,
+          `**Sucesso:** ${result.succeeded}`,
+          `**Parcial:** ${result.partial}`,
+          `**Falha:** ${result.failed}`
+        ].join("\n")
+      ),
+      separator(),
+      textDisplay(renderStaffSyncRows(result))
+    ])
+  ]);
+}
+
 function renderStaffRows(members: StaffMemberProfile[]): string {
   if (members.length === 0) {
     return "Nenhum membro ativo encontrado para esse filtro.";
@@ -111,8 +136,9 @@ function operationDetail(result: StaffOperationResult): string {
   if (result.status === "APPLIED") {
     return [
       "Alteracao gravada no banco e no historico da staff.",
-      "Discord roles e LuckPerms ficam pendentes para o bloco de sync/reconciliation.",
-      `**Historico:** ${result.historyId ?? "n/a"}`
+      "Sync externo registrado para reconciliacao.",
+      `**Historico:** ${result.historyId ?? "n/a"}`,
+      `**Sync:** ${result.syncJobId ?? "n/a"}`
     ].join("\n");
   }
 
@@ -132,4 +158,17 @@ function operationDetail(result: StaffOperationResult): string {
   }
 
   return "Preview apenas. Para aplicar, rode novamente com `confirmar: true`.";
+}
+
+function renderStaffSyncRows(result: StaffSyncRunResult): string {
+  if (result.items.length === 0) {
+    return "Nenhuma pendencia de staff encontrada para reconciliar.";
+  }
+
+  return result.items
+    .map((item) => {
+      const suffix = item.errorCode == null ? "" : ` - ${item.errorCode}`;
+      return `\`${item.job.syncJobId}\` - ${item.status}${suffix}`;
+    })
+    .join("\n");
 }

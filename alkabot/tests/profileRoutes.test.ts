@@ -123,7 +123,8 @@ function config(overrides: { environment?: AppConfig["app"]["environment"]; inte
       setupWriteRoleIds: new Set(),
       staffReadRoleIds: new Set(),
       staffPromoteRoleIds: new Set(),
-      staffDemoteRoleIds: new Set()
+      staffDemoteRoleIds: new Set(),
+      staffSyncRoleIds: new Set()
     },
     identity: {
       linkCodeTtlMs: 300_000,

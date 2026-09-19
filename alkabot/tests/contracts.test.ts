@@ -12,6 +12,7 @@ describe("contracts", () => {
     await expectFixture("contracts/fixtures/capabilities.rankup-01.json", capabilitiesSchema);
     await expectFixture("contracts/fixtures/event.player-joined.json", eventEnvelopeSchema);
     await expectFixture("contracts/fixtures/command.profile-read.json", commandEnvelopeSchema);
+    await expectFixture("contracts/fixtures/command.staff-sync.json", commandEnvelopeSchema);
   });
 
   it("accepts foundation fixtures with JSON schemas", async () => {
@@ -21,6 +22,7 @@ describe("contracts", () => {
     await expectJsonSchemaFixture(ajv, "contracts/schemas/capabilities.v1.schema.json", "contracts/fixtures/capabilities.rankup-01.json");
     await expectJsonSchemaFixture(ajv, "contracts/schemas/event-envelope.v1.schema.json", "contracts/fixtures/event.player-joined.json");
     await expectJsonSchemaFixture(ajv, "contracts/schemas/command-envelope.v1.schema.json", "contracts/fixtures/command.profile-read.json");
+    await expectJsonSchemaFixture(ajv, "contracts/schemas/command-envelope.v1.schema.json", "contracts/fixtures/command.staff-sync.json");
   });
 });
 
@@ -32,6 +34,9 @@ async function expectFixture(path: string, schema: { parse(input: unknown): unkn
 async function expectJsonSchemaFixture(ajv: Ajv2020, schemaPath: string, fixturePath: string): Promise<void> {
   const schema = (await readJson(schemaPath)) as AnySchema;
   const fixture = await readJson(fixturePath);
+  if (typeof schema === "object" && schema != null && "$id" in schema && typeof schema.$id === "string") {
+    ajv.removeSchema(schema.$id);
+  }
   const validate = ajv.compile(schema);
 
   expect(validate(fixture), JSON.stringify(validate.errors, null, 2)).toBe(true);

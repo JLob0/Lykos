@@ -13,7 +13,8 @@ import type { SetupService } from "../src/application/setup/setupService.js";
 import type { SetupDoctorReport } from "../src/application/setup/setupTypes.js";
 import type { StaffDirectoryService } from "../src/application/staff/staffDirectoryService.js";
 import type { StaffOperationsService } from "../src/application/staff/staffOperationsService.js";
-import type { StaffCareerPath, StaffMemberProfile, StaffOperationResult } from "../src/application/staff/staffTypes.js";
+import type { StaffSyncService } from "../src/application/staff/staffSyncService.js";
+import type { StaffCareerPath, StaffMemberProfile, StaffOperationResult, StaffSyncRunResult } from "../src/application/staff/staffTypes.js";
 import { ServerRegistry, type ServerNodeView } from "../src/bridge/serverRegistry.js";
 import type { AppConfig } from "../src/config/appConfig.js";
 import { createApplicationCommandPayloads } from "../src/discord/commands/commandRegistry.js";
@@ -410,8 +411,10 @@ describe("staff command", () => {
     const auditService = auditServiceStub();
     const staffDirectoryService = staffDirectoryServiceStub();
     const command = createStaffCommand({
+      registry: staffServerRegistry(),
       staffDirectoryService,
       staffOperationsService: staffOperationsServiceStub(),
+      staffSyncService: staffSyncServiceStub(),
       policyEngine: new PolicyEngine(policyConfig({ staffReadRoleIds: new Set(["role_staff"]) })),
       auditService
     });
@@ -432,8 +435,10 @@ describe("staff command", () => {
     const auditService = auditServiceStub();
     const staffDirectoryService = staffDirectoryServiceStub();
     const command = createStaffCommand({
+      registry: staffServerRegistry(),
       staffDirectoryService,
       staffOperationsService: staffOperationsServiceStub(),
+      staffSyncService: staffSyncServiceStub(),
       policyEngine: new PolicyEngine(policyConfig({ staffReadRoleIds: new Set(["role_staff"]) })),
       auditService
     });
@@ -456,8 +461,10 @@ describe("staff command", () => {
     const auditService = auditServiceStub();
     const staffDirectoryService = staffDirectoryServiceStub();
     const command = createStaffCommand({
+      registry: staffServerRegistry(),
       staffDirectoryService,
       staffOperationsService: staffOperationsServiceStub(),
+      staffSyncService: staffSyncServiceStub(),
       policyEngine: new PolicyEngine(policyConfig({ staffReadRoleIds: new Set(["role_staff"]) })),
       auditService
     });
@@ -479,8 +486,10 @@ describe("staff command", () => {
   it("denies staff visibility without staff read permission", async () => {
     const auditService = auditServiceStub();
     const command = createStaffCommand({
+      registry: staffServerRegistry(),
       staffDirectoryService: staffDirectoryServiceStub(),
       staffOperationsService: staffOperationsServiceStub(),
+      staffSyncService: staffSyncServiceStub(),
       policyEngine: new PolicyEngine(policyConfig({ staffReadRoleIds: new Set(["role_staff"]) })),
       auditService
     });
@@ -502,8 +511,10 @@ describe("staff command", () => {
     const auditService = auditServiceStub();
     const staffOperationsService = staffOperationsServiceStub();
     const command = createStaffCommand({
+      registry: staffServerRegistry(),
       staffDirectoryService: staffDirectoryServiceStub(),
       staffOperationsService,
+      staffSyncService: staffSyncServiceStub(),
       policyEngine: new PolicyEngine(policyConfig({ staffPromoteRoleIds: new Set(["role_staff_promote"]) })),
       auditService
     });
@@ -544,8 +555,10 @@ describe("staff command", () => {
       })
     });
     const command = createStaffCommand({
+      registry: staffServerRegistry(),
       staffDirectoryService: staffDirectoryServiceStub(),
       staffOperationsService,
+      staffSyncService: staffSyncServiceStub(),
       policyEngine: new PolicyEngine(policyConfig({ staffDemoteRoleIds: new Set(["role_staff_demote"]) })),
       auditService
     });
@@ -576,8 +589,10 @@ describe("staff command", () => {
     const auditService = auditServiceStub();
     const staffOperationsService = staffOperationsServiceStub();
     const command = createStaffCommand({
+      registry: staffServerRegistry(),
       staffDirectoryService: staffDirectoryServiceStub(),
       staffOperationsService,
+      staffSyncService: staffSyncServiceStub(),
       policyEngine: new PolicyEngine(policyConfig({ staffReadRoleIds: new Set(["role_staff_read"]) })),
       auditService
     });
@@ -601,6 +616,82 @@ describe("staff command", () => {
       flags: MessageFlags.Ephemeral
     });
     expect(auditService.record).toHaveBeenCalledWith(expect.objectContaining({ eventType: "POLICY_DENIED" }));
+  });
+
+  it("runs staff sync for a registered bridge server", async () => {
+    const auditService = auditServiceStub();
+    const staffSyncService = staffSyncServiceStub({
+      result: staffSyncRunResult({
+        processed: 1,
+        succeeded: 1
+      })
+    });
+    const command = createStaffCommand({
+      registry: staffServerRegistry(),
+      staffDirectoryService: staffDirectoryServiceStub(),
+      staffOperationsService: staffOperationsServiceStub(),
+      staffSyncService,
+      policyEngine: new PolicyEngine(policyConfig({ staffSyncRoleIds: new Set(["role_staff_sync"]) })),
+      auditService
+    });
+    const interaction = chatInputInteraction({
+      roleIds: ["role_staff_sync"],
+      subcommand: "sync",
+      stringOptions: {
+        servidor: "rankup-01"
+      },
+      integerOptions: {
+        limite: 5
+      }
+    });
+
+    await command.execute(interaction);
+
+    expect(staffSyncService.syncPending).toHaveBeenCalledWith({
+      targetServerId: "rankup-01",
+      actorDiscordUserId: "111",
+      limit: 5
+    });
+    expect(interaction.editReply).toHaveBeenCalledWith(expect.objectContaining({ flags: MessageFlags.IsComponentsV2 }));
+    expect(auditService.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: "STAFF_SYNC_RUN",
+        target: {
+          type: "SERVER",
+          id: "rankup-01"
+        },
+        metadata: expect.objectContaining({
+          processed: 1,
+          succeeded: 1
+        })
+      })
+    );
+  });
+
+  it("rejects staff sync when the bridge server is unknown", async () => {
+    const auditService = auditServiceStub();
+    const staffSyncService = staffSyncServiceStub();
+    const command = createStaffCommand({
+      registry: new ServerRegistry(30_000),
+      staffDirectoryService: staffDirectoryServiceStub(),
+      staffOperationsService: staffOperationsServiceStub(),
+      staffSyncService,
+      policyEngine: new PolicyEngine(policyConfig({ staffSyncRoleIds: new Set(["role_staff_sync"]) })),
+      auditService
+    });
+    const interaction = chatInputInteraction({
+      roleIds: ["role_staff_sync"],
+      subcommand: "sync",
+      stringOptions: {
+        servidor: "rankup-02"
+      }
+    });
+
+    await command.execute(interaction);
+
+    expect(staffSyncService.syncPending).not.toHaveBeenCalled();
+    expect(interaction.editReply).toHaveBeenCalledWith("Servidor Bridge nao encontrado para o sync de staff.");
+    expect(auditService.record).toHaveBeenCalledWith(expect.objectContaining({ eventType: "STAFF_SYNC_FAILED" }));
   });
 });
 
@@ -629,6 +720,7 @@ function chatInputInteraction(input: {
   optionMode?: string;
   stringOption?: string | null;
   stringOptions?: Record<string, string | null>;
+  integerOptions?: Record<string, number | null>;
   booleanOptions?: Record<string, boolean | null>;
   userOption?: { id: string } | null;
   guildRoles?: Array<{ id: string; name: string; managed?: boolean; position?: number; editable?: boolean }>;
@@ -684,6 +776,13 @@ function chatInputInteraction(input: {
       getBoolean: (name: string) => {
         if (input.booleanOptions != null && Object.prototype.hasOwnProperty.call(input.booleanOptions, name)) {
           return input.booleanOptions[name];
+        }
+
+        return null;
+      },
+      getInteger: (name: string) => {
+        if (input.integerOptions != null && Object.prototype.hasOwnProperty.call(input.integerOptions, name)) {
+          return input.integerOptions[name];
         }
 
         return null;
@@ -847,6 +946,49 @@ function staffOperationsServiceStub(overrides: { promoteResult?: StaffOperationR
   } as unknown as StaffOperationsService;
 }
 
+function staffSyncRunResult(overrides: Partial<StaffSyncRunResult> = {}): StaffSyncRunResult {
+  return {
+    targetServerId: "rankup-01",
+    requested: 10,
+    processed: 0,
+    succeeded: 0,
+    failed: 0,
+    partial: 0,
+    items: [],
+    ...overrides
+  };
+}
+
+function staffSyncServiceStub(overrides: { result?: StaffSyncRunResult } = {}): StaffSyncService {
+  return {
+    syncPending: vi.fn(async () => overrides.result ?? staffSyncRunResult())
+  } as unknown as StaffSyncService;
+}
+
+function staffServerRegistry(): ServerRegistry {
+  const registry = new ServerRegistry(30_000);
+  registry.upsertHeartbeat({
+    version: 1,
+    serverId: "rankup-01",
+    displayName: "RankUP",
+    environment: "development",
+    status: "ONLINE",
+    timestamp: "2026-09-18T15:00:00.000Z",
+    bridgeVersion: "0.1.0",
+    paperVersion: "1.21.8",
+    javaVersion: "21.0.11",
+    onlinePlayers: 42,
+    maxPlayers: 200
+  });
+  registry.upsertCapabilities({
+    version: 1,
+    serverId: "rankup-01",
+    timestamp: "2026-09-18T15:00:01.000Z",
+    capabilities: ["bridge.ping", "staff.sync", "server.heartbeat"]
+  });
+  return registry;
+}
+
 function auditServiceStub(): AuditService {
   return {
     record: vi.fn(async (event) => ({
@@ -929,6 +1071,7 @@ function policyConfig(overrides: {
   staffReadRoleIds?: ReadonlySet<string>;
   staffPromoteRoleIds?: ReadonlySet<string>;
   staffDemoteRoleIds?: ReadonlySet<string>;
+  staffSyncRoleIds?: ReadonlySet<string>;
 }): AppConfig {
   return {
     app: {
@@ -968,7 +1111,8 @@ function policyConfig(overrides: {
       setupWriteRoleIds: overrides.setupWriteRoleIds ?? new Set(),
       staffReadRoleIds: overrides.staffReadRoleIds ?? new Set(),
       staffPromoteRoleIds: overrides.staffPromoteRoleIds ?? new Set(),
-      staffDemoteRoleIds: overrides.staffDemoteRoleIds ?? new Set()
+      staffDemoteRoleIds: overrides.staffDemoteRoleIds ?? new Set(),
+      staffSyncRoleIds: overrides.staffSyncRoleIds ?? new Set()
     },
     identity: {
       linkCodeTtlMs: 300_000,

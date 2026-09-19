@@ -52,7 +52,9 @@ Lykos publishes a signed `bridge.ping` command to `alka:commands:{serverId}`. Al
 
 `/staff list`, `/staff profile`, and `/staff department` expose the staff directory and career paths. These read commands require `alka.staff.read`, configured through `POLICY_STAFF_READ_ROLE_IDS`, or an admin binding.
 
-`/staff promote` and `/staff demote` plan or apply career movement in the canonical staff database. Without `confirmar:true`, they render a preview only; with confirmation they close the active assignment, create the new assignment, write `staff_history`, and audit the operation. They require `alka.staff.promote` / `alka.staff.demote` through `POLICY_STAFF_PROMOTE_ROLE_IDS` and `POLICY_STAFF_DEMOTE_ROLE_IDS`. Senior-seat conflicts are blocked. Discord role changes and LuckPerms sync remain reserved for the reconciliation block.
+`/staff promote` and `/staff demote` plan or apply career movement in the canonical staff database. Without `confirmar:true`, they render a preview only; with confirmation they close the active assignment, create the new assignment, write `staff_history`, create a `staff_sync_jobs` row, and audit the operation. They require `alka.staff.promote` / `alka.staff.demote` through `POLICY_STAFF_PROMOTE_ROLE_IDS` and `POLICY_STAFF_DEMOTE_ROLE_IDS`. Senior-seat conflicts are blocked.
+
+`/staff sync servidor:<id> limite:<1-25>` reconciles pending staff projection jobs with the selected Bridge server. It requires `alka.staff.sync` through `POLICY_STAFF_SYNC_ROLE_IDS` or an admin binding. The current Bridge side acknowledges the typed `staff.sync` projection payload and returns `mode=PROJECTION_ACK`; physical Discord role mutation and LuckPerms mutation remain reserved for the dedicated sync adapter block.
 
 Register commands with:
 

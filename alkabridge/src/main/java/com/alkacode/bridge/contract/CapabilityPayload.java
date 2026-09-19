@@ -19,6 +19,7 @@ public record CapabilityPayload(
                         "server.heartbeat",
                         "server.capabilities",
                         "bridge.ping",
+                        "staff.sync",
                         "player.profile.read"
                 )
         );

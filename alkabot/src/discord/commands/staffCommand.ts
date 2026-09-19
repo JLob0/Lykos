@@ -4,11 +4,19 @@ import type { PolicyEngine } from "../../application/policy/policyEngine.js";
 import { ALKA_PERMISSIONS, type PolicyActor, type PolicyResult } from "../../application/policy/policyTypes.js";
 import type { StaffDirectoryService } from "../../application/staff/staffDirectoryService.js";
 import type { StaffOperationsService } from "../../application/staff/staffOperationsService.js";
+import type { StaffSyncService } from "../../application/staff/staffSyncService.js";
 import type { StaffOperationResult } from "../../application/staff/staffTypes.js";
 import { StaffError } from "../../application/staff/staffTypes.js";
+import type { ServerRegistry } from "../../bridge/serverRegistry.js";
 import { createDiscordPolicyActor } from "../permissions/discordPolicyActor.js";
 import type { ChatInputCommandHandler } from "../interactions/slashCommand.js";
-import { renderStaffCareerPathCard, renderStaffListCard, renderStaffOperationCard, renderStaffProfileCard } from "../ui/staffCards.js";
+import {
+  renderStaffCareerPathCard,
+  renderStaffListCard,
+  renderStaffOperationCard,
+  renderStaffProfileCard,
+  renderStaffSyncCard
+} from "../ui/staffCards.js";
 
 export const staffCommandData = new SlashCommandBuilder()
   .setName("staff")
@@ -47,11 +55,20 @@ export const staffCommandData = new SlashCommandBuilder()
       .addStringOption((option) => option.setName("id").setDescription("ID interno do membro da staff.").setRequired(true))
       .addStringOption((option) => option.setName("motivo").setDescription("Motivo do rebaixamento.").setRequired(true))
       .addBooleanOption((option) => option.setName("confirmar").setDescription("Quando true, aplica a alteracao no banco.").setRequired(false))
+  )
+  .addSubcommand((subcommand) =>
+    subcommand
+      .setName("sync")
+      .setDescription("Reconcilia pendencias de cargo da staff com o Bridge.")
+      .addStringOption((option) => option.setName("servidor").setDescription("ID do servidor Bridge alvo.").setRequired(true))
+      .addIntegerOption((option) => option.setName("limite").setDescription("Quantidade maxima de pendencias.").setMinValue(1).setMaxValue(25).setRequired(false))
   );
 
 export type StaffCommandDependencies = {
+  registry: ServerRegistry;
   staffDirectoryService: StaffDirectoryService;
   staffOperationsService: StaffOperationsService;
+  staffSyncService: StaffSyncService;
   policyEngine: PolicyEngine;
   auditService: AuditService;
 };
@@ -124,6 +141,35 @@ export function createStaffCommand(dependencies: StaffCommandDependencies): Chat
               : await dependencies.staffOperationsService.demote(operationInputFromInteraction(interaction, actor.id));
           await auditStaffOperation(dependencies.auditService, interaction.id, actor, result, policyResult);
           await interaction.editReply(renderStaffOperationCard(result));
+          return;
+        }
+
+        if (subcommand === "sync") {
+          const targetServerId = interaction.options.getString("servidor", true);
+          const serverNode = dependencies.registry.get(targetServerId);
+          if (serverNode == null) {
+            await auditStaffRead(dependencies.auditService, interaction.id, actor, "STAFF_SYNC_FAILED", "SERVER", targetServerId, {
+              reason: "SERVER_NOT_FOUND",
+              policyMatchedBy: policyResult.matchedBy
+            });
+            await interaction.editReply("Servidor Bridge nao encontrado para o sync de staff.");
+            return;
+          }
+
+          const syncLimit = interaction.options.getInteger("limite", false) ?? undefined;
+          const result = await dependencies.staffSyncService.syncPending({
+            targetServerId,
+            actorDiscordUserId: actor.id,
+            ...(syncLimit == null ? {} : { limit: syncLimit })
+          });
+          await auditStaffRead(dependencies.auditService, interaction.id, actor, "STAFF_SYNC_RUN", "SERVER", targetServerId, {
+            processed: result.processed,
+            succeeded: result.succeeded,
+            failed: result.failed,
+            partial: result.partial,
+            policyMatchedBy: policyResult.matchedBy
+          });
+          await interaction.editReply(renderStaffSyncCard(result));
           return;
         }
 
@@ -253,12 +299,20 @@ function actionForSubcommand(subcommand: string): (typeof ALKA_PERMISSIONS)[keyo
     return ALKA_PERMISSIONS.STAFF_DEMOTE;
   }
 
+  if (subcommand === "sync") {
+    return ALKA_PERMISSIONS.STAFF_SYNC;
+  }
+
   return ALKA_PERMISSIONS.STAFF_READ;
 }
 
 function messageForDeniedAction(action: (typeof ALKA_PERMISSIONS)[keyof typeof ALKA_PERMISSIONS]): string {
   if (action === ALKA_PERMISSIONS.STAFF_PROMOTE || action === ALKA_PERMISSIONS.STAFF_DEMOTE) {
     return "Voce nao tem permissao para alterar carreira da staff.";
+  }
+
+  if (action === ALKA_PERMISSIONS.STAFF_SYNC) {
+    return "Voce nao tem permissao para reconciliar cargos da staff.";
   }
 
   return "Voce nao tem permissao para ver o painel de staff.";

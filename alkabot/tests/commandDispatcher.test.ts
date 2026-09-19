@@ -46,7 +46,8 @@ const config: AppConfig = {
     setupWriteRoleIds: new Set(),
     staffReadRoleIds: new Set(),
     staffPromoteRoleIds: new Set(),
-    staffDemoteRoleIds: new Set()
+    staffDemoteRoleIds: new Set(),
+    staffSyncRoleIds: new Set()
   },
   identity: {
     linkCodeTtlMs: 300_000,
@@ -71,6 +72,55 @@ describe("BridgeCommandDispatcher", () => {
       commandId: command.commandId,
       command: "bridge.ping",
       targetServer: "rankup-01"
+    });
+  });
+
+  it("publishes staff.sync with a typed staff projection payload", async () => {
+    const redis = new FakeRedisClient();
+    const dispatcher = createDispatcher(redis);
+
+    const command = await dispatcher.dispatchStaffSync({
+      serverId: "rankup-01",
+      actorDiscordUserId: "111111111111111111",
+      staffMemberId: "staff_1",
+      payload: {
+        version: 1,
+        syncJobId: "staff_sync_test",
+        staffMemberId: "staff_1",
+        assignmentId: "assignment_1",
+        historyId: "history_1",
+        discordUserId: "111111111111111111",
+        minecraftUuid: "123e4567-e89b-12d3-a456-426614174000",
+        displayName: "MestreBR",
+        target: {
+          departmentKey: "moderation",
+          positionKey: "moderation.senior",
+          seniorityLevel: "SENIOR",
+          seniorSeat: true
+        },
+        projection: {
+          discordRoleKeys: ["alka.senior.staff", "alka.staff"],
+          minecraftPermissionGroups: ["staff.moderation-senior"]
+        }
+      }
+    });
+
+    expect(redis.pushes).toHaveLength(1);
+    const signed = parseSignedRedisMessage(redis.pushes[0]?.value ?? "", "test-secret");
+    const payload = commandEnvelopeSchema.parse(JSON.parse(signed?.payloadJson ?? "{}"));
+    expect(payload).toMatchObject({
+      commandId: command.commandId,
+      command: "staff.sync",
+      targetServer: "rankup-01",
+      actor: {
+        discordUserId: "111111111111111111",
+        staffMemberId: "staff_1",
+        permissionsSnapshot: ["alka.staff.sync"]
+      },
+      data: {
+        syncJobId: "staff_sync_test",
+        staffMemberId: "staff_1"
+      }
     });
   });
 

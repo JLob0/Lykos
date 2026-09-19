@@ -50,4 +50,7 @@ The current command bus uses an expiring `command-envelope.v1` payload inside th
 - Promotion/demotion commands preview by default and require `confirmar:true` before writing assignments or history.
 - Senior-seat conflicts block the operation before mutation.
 - Admin bindings still bypass action-specific role bindings through the central `PolicyEngine`.
-- Discord role mutation and LuckPerms sync are intentionally absent here; the operation result is marked as pending external sync for the future reconciliation block.
+- Confirmed career mutations create a durable `staff_sync_jobs` row in the same transaction as assignment/history changes.
+- `/staff sync` requires `alka.staff.sync` through `POLICY_STAFF_SYNC_ROLE_IDS` or an admin binding, checks the requested Bridge server, dispatches only typed `staff.sync` commands, and audits the run summary.
+- The current Bridge implementation is a projection acknowledgement path, not a generic console or free-form command executor. It validates required staff sync payload fields and returns `PROJECTION_ACK`.
+- Physical Discord role mutation and LuckPerms writes remain reserved for dedicated adapters with their own hierarchy and idempotency checks.

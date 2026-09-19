@@ -19,6 +19,7 @@ public final class CommandConsumerService {
 
     private static final String COMMAND_SCHEMA = "command-envelope.v1";
     private static final String BRIDGE_PING_COMMAND = "bridge.ping";
+    private static final String STAFF_SYNC_COMMAND = "staff.sync";
 
     private final AlkaBridgePlugin plugin;
     private final BridgeConfig config;
@@ -126,6 +127,11 @@ public final class CommandConsumerService {
             return;
         }
 
+        if (STAFF_SYNC_COMMAND.equals(command.command())) {
+            executeStaffSync(command);
+            return;
+        }
+
         transport.publishCommandResult(CommandResultPayload.failed(
                 command,
                 config.serverId(),
@@ -179,6 +185,45 @@ public final class CommandConsumerService {
                         "serverId", config.serverId(),
                         "receivedAt", Instant.now().toString(),
                         "bridgeVersion", plugin.getPluginMeta().getVersion()
+                )
+        ));
+    }
+
+    private void executeStaffSync(CommandEnvelope command) {
+        transport.publishCommandResult(CommandResultPayload.acknowledged(command, config.serverId()));
+
+        Map<String, Object> data = command.data();
+        Object syncJobId = data.get("syncJobId");
+        Object staffMemberId = data.get("staffMemberId");
+        Object target = data.get("target");
+        Object projection = data.get("projection");
+
+        if (!(syncJobId instanceof String syncJobIdValue) || syncJobIdValue.isBlank()
+                || !(staffMemberId instanceof String staffMemberIdValue) || staffMemberIdValue.isBlank()
+                || !(target instanceof Map<?, ?> targetMap)
+                || !(projection instanceof Map<?, ?> projectionMap)) {
+            transport.publishCommandResult(CommandResultPayload.failed(
+                    command,
+                    config.serverId(),
+                    "INVALID_STAFF_SYNC_PAYLOAD",
+                    "Payload staff.sync sem syncJobId, staffMemberId, target ou projection.",
+                    false
+            ));
+            return;
+        }
+
+        transport.publishCommandResult(CommandResultPayload.success(
+                command,
+                config.serverId(),
+                Map.of(
+                        "accepted", true,
+                        "syncJobId", syncJobIdValue,
+                        "staffMemberId", staffMemberIdValue,
+                        "target", targetMap,
+                        "projection", projectionMap,
+                        "minecraftApplied", false,
+                        "mode", "PROJECTION_ACK",
+                        "receivedAt", Instant.now().toString()
                 )
         ));
     }

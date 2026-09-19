@@ -21,6 +21,7 @@ describe("loadConfig", () => {
     expect(config.policy.staffReadRoleIds.size).toBe(0);
     expect(config.policy.staffPromoteRoleIds.size).toBe(0);
     expect(config.policy.staffDemoteRoleIds.size).toBe(0);
+    expect(config.policy.staffSyncRoleIds.size).toBe(0);
   });
 
   it("normalizes empty secrets to undefined", () => {
@@ -41,7 +42,8 @@ describe("loadConfig", () => {
       POLICY_SETUP_WRITE_ROLE_IDS: "666",
       POLICY_STAFF_READ_ROLE_IDS: "777",
       POLICY_STAFF_PROMOTE_ROLE_IDS: "888",
-      POLICY_STAFF_DEMOTE_ROLE_IDS: "999"
+      POLICY_STAFF_DEMOTE_ROLE_IDS: "999",
+      POLICY_STAFF_SYNC_ROLE_IDS: "1010"
     });
 
     expect([...config.policy.adminDiscordUserIds]).toEqual(["111", "222"]);
@@ -51,6 +53,7 @@ describe("loadConfig", () => {
     expect([...config.policy.staffReadRoleIds]).toEqual(["777"]);
     expect([...config.policy.staffPromoteRoleIds]).toEqual(["888"]);
     expect([...config.policy.staffDemoteRoleIds]).toEqual(["999"]);
+    expect([...config.policy.staffSyncRoleIds]).toEqual(["1010"]);
   });
 
   it("parses link code timing settings in seconds", () => {

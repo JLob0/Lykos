@@ -9,6 +9,7 @@ import { RoleSetupService } from "../application/roles/roleSetupService.js";
 import { SetupService } from "../application/setup/setupService.js";
 import { StaffDirectoryService } from "../application/staff/staffDirectoryService.js";
 import { StaffOperationsService } from "../application/staff/staffOperationsService.js";
+import { StaffSyncService } from "../application/staff/staffSyncService.js";
 import { BridgeRedisMonitor } from "../bridge/bridgeRedisMonitor.js";
 import { BridgeCommandDispatcher } from "../bridge/commandDispatcher.js";
 import { registerServerRoutes } from "../bridge/serverRoutes.js";
@@ -47,6 +48,7 @@ export class LykosApp {
   private readonly roleSetupService: RoleSetupService;
   private readonly staffDirectoryService: StaffDirectoryService;
   private readonly staffOperationsService: StaffOperationsService;
+  private readonly staffSyncService: StaffSyncService;
 
   public constructor(
     private readonly config: AppConfig,
@@ -78,6 +80,7 @@ export class LykosApp {
       logger
     );
     this.commandDispatcher = new BridgeCommandDispatcher(config, this.redis, logger);
+    this.staffSyncService = new StaffSyncService(staffRepository, this.commandDispatcher);
     this.setupService = new SetupService({
       config,
       healthChecks: [this.database, this.redis, this.bridgeMonitor],
@@ -94,7 +97,8 @@ export class LykosApp {
       setupService: this.setupService,
       roleSetupService: this.roleSetupService,
       staffDirectoryService: this.staffDirectoryService,
-      staffOperationsService: this.staffOperationsService
+      staffOperationsService: this.staffOperationsService,
+      staffSyncService: this.staffSyncService
     });
     const interactionRouter = new InteractionRouter(commandSet.chatInputCommands, commandSet.buttonHandlers, logger);
     this.discord = new DiscordRuntime(config, logger, interactionRouter);

@@ -43,7 +43,8 @@ export class PolicyEngine {
       this.config.policy.setupWriteRoleIds.size === 0 &&
       this.config.policy.staffReadRoleIds.size === 0 &&
       this.config.policy.staffPromoteRoleIds.size === 0 &&
-      this.config.policy.staffDemoteRoleIds.size === 0
+      this.config.policy.staffDemoteRoleIds.size === 0 &&
+      this.config.policy.staffSyncRoleIds.size === 0
     );
   }
 }
@@ -64,6 +65,8 @@ function roleIdsForAction(config: AppConfig, action: AlkaPermission): ReadonlySe
       return config.policy.staffPromoteRoleIds;
     case "alka.staff.demote":
       return config.policy.staffDemoteRoleIds;
+    case "alka.staff.sync":
+      return config.policy.staffSyncRoleIds;
   }
 }
 

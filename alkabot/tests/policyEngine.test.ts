@@ -70,6 +70,15 @@ describe("PolicyEngine", () => {
     });
   });
 
+  it("allows a staff sync role for reconciliation", () => {
+    const engine = new PolicyEngine(configWithPolicy({ staffSyncRoleIds: new Set(["role_staff_sync"]) }));
+
+    expect(engine.evaluate(request(actor({ roleIds: ["role_staff_sync"] }), ALKA_PERMISSIONS.STAFF_SYNC))).toMatchObject({
+      decision: "ALLOW",
+      matchedBy: "ACTION_ROLE"
+    });
+  });
+
   it("denies in production when no binding matches", () => {
     const engine = new PolicyEngine(configWithPolicy({ environment: "production", networkReadRoleIds: new Set(["other"]) }));
 
@@ -109,6 +118,7 @@ function configWithPolicy(overrides: {
   staffReadRoleIds?: ReadonlySet<string>;
   staffPromoteRoleIds?: ReadonlySet<string>;
   staffDemoteRoleIds?: ReadonlySet<string>;
+  staffSyncRoleIds?: ReadonlySet<string>;
 }): AppConfig {
   return {
     app: {
@@ -148,7 +158,8 @@ function configWithPolicy(overrides: {
       setupWriteRoleIds: overrides.setupWriteRoleIds ?? new Set(),
       staffReadRoleIds: overrides.staffReadRoleIds ?? new Set(),
       staffPromoteRoleIds: overrides.staffPromoteRoleIds ?? new Set(),
-      staffDemoteRoleIds: overrides.staffDemoteRoleIds ?? new Set()
+      staffDemoteRoleIds: overrides.staffDemoteRoleIds ?? new Set(),
+      staffSyncRoleIds: overrides.staffSyncRoleIds ?? new Set()
     },
     identity: {
       linkCodeTtlMs: 300_000,

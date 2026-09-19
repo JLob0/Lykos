@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { Redis } from "ioredis";
 import type { AppConfig } from "../config/appConfig.js";
 import { commandResultSchema, type CommandEnvelope, type CommandResult } from "../contracts/envelopes.js";
+import type { StaffSyncPayload } from "../application/staff/staffTypes.js";
 import type { RedisProvider } from "../infrastructure/redis/redisProvider.js";
 import type { AppLogger } from "../logging/logger.js";
 import { signPayload } from "../security/hmacSigner.js";
@@ -13,8 +14,16 @@ const SYSTEM_DISCORD_USER_ID = "000000000000000000";
 
 export interface BridgeCommandDispatcherPort {
   dispatchBridgePing(serverId: string): Promise<CommandEnvelope>;
+  dispatchStaffSync(input: StaffSyncDispatchInput): Promise<CommandEnvelope>;
   waitForResult(commandId: string): Promise<CommandResult | undefined>;
 }
+
+export type StaffSyncDispatchInput = {
+  serverId: string;
+  actorDiscordUserId: string;
+  staffMemberId: string;
+  payload: StaffSyncPayload;
+};
 
 export class BridgeCommandDispatcher implements BridgeCommandDispatcherPort {
   public constructor(
@@ -24,6 +33,37 @@ export class BridgeCommandDispatcher implements BridgeCommandDispatcherPort {
   ) {}
 
   public async dispatchBridgePing(serverId: string): Promise<CommandEnvelope> {
+    return this.dispatchCommand({
+      serverId,
+      command: "bridge.ping",
+      actorDiscordUserId: SYSTEM_DISCORD_USER_ID,
+      staffMemberId: null,
+      permissionsSnapshot: ["alka.internal.bridge.ping"],
+      data: {
+        sentAt: new Date().toISOString()
+      }
+    });
+  }
+
+  public async dispatchStaffSync(input: StaffSyncDispatchInput): Promise<CommandEnvelope> {
+    return this.dispatchCommand({
+      serverId: input.serverId,
+      command: "staff.sync",
+      actorDiscordUserId: input.actorDiscordUserId,
+      staffMemberId: input.staffMemberId,
+      permissionsSnapshot: ["alka.staff.sync"],
+      data: input.payload
+    });
+  }
+
+  private async dispatchCommand(input: {
+    serverId: string;
+    command: string;
+    actorDiscordUserId: string;
+    staffMemberId: string | null;
+    permissionsSnapshot: string[];
+    data: Record<string, unknown>;
+  }): Promise<CommandEnvelope> {
     const secret = this.requireBridgeSecret();
     const redis = await this.getRedisClient();
     const issuedAt = new Date();
@@ -31,25 +71,23 @@ export class BridgeCommandDispatcher implements BridgeCommandDispatcherPort {
     const command: CommandEnvelope = {
       commandId: `cmd_${randomUUID()}`,
       correlationId: `corr_${randomUUID()}`,
-      command: "bridge.ping",
+      command: input.command,
       version: 1,
-      targetServer: serverId,
+      targetServer: input.serverId,
       issuedAt: issuedAt.toISOString(),
       expiresAt: expiresAt.toISOString(),
       actor: {
-        discordUserId: SYSTEM_DISCORD_USER_ID,
-        staffMemberId: null,
-        permissionsSnapshot: ["alka.internal.bridge.ping"]
+        discordUserId: input.actorDiscordUserId,
+        staffMemberId: input.staffMemberId,
+        permissionsSnapshot: input.permissionsSnapshot
       },
-      data: {
-        sentAt: issuedAt.toISOString()
-      }
+      data: input.data
     };
 
     const signed = signRedisPayload(COMMAND_SCHEMA, command, secret);
-    const queueKey = this.commandQueueKey(serverId);
+    const queueKey = this.commandQueueKey(input.serverId);
     await redis.lpush(queueKey, JSON.stringify(signed));
-    this.logger.info({ commandId: command.commandId, serverId }, "Bridge ping command dispatched.");
+    this.logger.info({ commandId: command.commandId, serverId: input.serverId, command: input.command }, "Bridge command dispatched.");
     return command;
   }
 
